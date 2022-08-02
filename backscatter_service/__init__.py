@@ -45,12 +45,8 @@ class BackscatterService(Service):
     #
     @staticmethod
     def get_config(existing_config):
-        # Generate default config from form and initial values.
-        config = {}
         fields = forms.BackscatterConfigForm().fields
-        for name, field in fields.iteritems():
-            config[name] = field.initial
-
+        config = {name: field.initial for name, field in fields.iteritems()}
         # If there is a config in the database, use values from that.
         if existing_config:
             for key, value in existing_config.iteritems():
@@ -63,25 +59,25 @@ class BackscatterService(Service):
             raise ServiceConfigError("API key required.")
 
     @classmethod
-    def generate_config_form(self, config):
+    def generate_config_form(cls, config):
         # Convert sigfiles to newline separated strings
-        html = render_to_string('services_config_form.html',
-                                {'name': self.name,
-                                 'form': forms.BackscatterConfigForm(initial=config),
-                                 'config_error': None})
+        html = render_to_string(
+            'services_config_form.html',
+            {
+                'name': cls.name,
+                'form': forms.BackscatterConfigForm(initial=config),
+                'config_error': None,
+            },
+        )
+
         form = forms.BackscatterConfigForm
         return form, html
 
     @staticmethod
     def get_config_details(config):
-        display_config = {}
-
         # Rename keys so they render nice.
         fields = forms.BackscatterConfigForm().fields
-        for name, field in fields.iteritems():
-            display_config[field.label] = config[name]
-
-        return display_config
+        return {field.label: config[name] for name, field in fields.iteritems()}
 
     def run(self, obj, config):
         self.config = config

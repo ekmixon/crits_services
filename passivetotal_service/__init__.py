@@ -33,10 +33,12 @@ def call_supported_types(supported=[]):
             request_type = self.obj._meta['crits_type']
             if request_type not in supported:
                 logger.warn("PassiveTotal: Invalid type.")
-                self._warning("%s: Invalid type specified." % f.func_name)
+                self._warning(f"{f.func_name}: Invalid type specified.")
                 return
             return f(self, *args)
+
         return wrapper
+
     return _supported_types
 
 
@@ -57,11 +59,8 @@ class PassiveTotalService(Service):
 
     @staticmethod
     def get_config(existing_config):
-        config = {}
         fields = forms.PassiveTotalConfigForm().fields
-        for name, field in iteritems(fields):
-            config[name] = field.initial
-
+        config = {name: field.initial for name, field in iteritems(fields)}
         # If there is a config in the database, use values from that.
         if existing_config:
             for key, value in existing_config.iteritems():
@@ -77,19 +76,17 @@ class PassiveTotalService(Service):
 
     @staticmethod
     def get_config_details(config):
-        display_config = {}
         fields = forms.PassiveTotalConfigForm().fields
-        for name, field in iteritems(fields):
-            display_config[field.label] = config[name]
-        return display_config
+        return {field.label: config[name] for name, field in iteritems(fields)}
 
     @classmethod
-    def generate_config_form(self, config):
+    def generate_config_form(cls, config):
         details = {
-            'name': self.name,
+            'name': cls.name,
             'form': forms.PassiveTotalConfigForm(initial=config),
-            'config_error': None
+            'config_error': None,
         }
+
         html = render_to_string('services_config_form.html', details)
         form = forms.PassiveTotalConfigForm
         return form, html
@@ -108,22 +105,21 @@ class PassiveTotalService(Service):
         for item in query_types:
             if item not in config:
                 config[item] = True
-        form = forms.PassiveTotalRuntimeForm(data=config)
-        return form
+        return forms.PassiveTotalRuntimeForm(data=config)
 
     @classmethod
-    def generate_runtime_form(self, analyst, config, crits_type, identifier):
+    def generate_runtime_form(cls, analyst, config, crits_type, identifier):
         if not config['prompt_user']:
             return None
 
         details = {
-            'name': self.name,
+            'name': cls.name,
             'form': forms.PassiveTotalRuntimeForm(),
             'crits_type': crits_type,
-            'identifier': identifier
+            'identifier': identifier,
         }
-        html = render_to_string("services_run_form.html", details)
-        return html
+
+        return render_to_string("services_run_form.html", details)
 
     def _gen_label(self, item):
         """Generate a friendly looking label based on a string.
@@ -131,7 +127,7 @@ class PassiveTotalService(Service):
         :param item: Str value to clean up
         :return: Cleaned up label based on a key
         """
-        output = list()
+        output = []
         for idx, chr in enumerate(item):
             if chr.isupper():
                 output.append(' ')
@@ -149,13 +145,13 @@ class PassiveTotalService(Service):
         elif obj._meta['crits_type'] == 'Indicator':
             query = obj.value
         elif obj._meta['crits_type'] == 'Email':
-            query = list()
+            query = []
             for field in ['sender', 'to', 'from_address']:
                 tmp = getattr(obj, field)
                 if not tmp or tmp == '':
                     continue
                 query.append(tmp)
-        self._info("Query value passed along: %s." % str(query))
+        self._info(f"Query value passed along: {str(query)}.")
         return query
 
     def _generate_request_instance(self, request_type):
@@ -167,23 +163,21 @@ class PassiveTotalService(Service):
         """
         crits_config = CRITsConfig.objects().first()
 
-        http_proxy_value = None
-
-        if crits_config.http_proxy:
-            http_proxy_value = crits_config.http_proxy
-
+        http_proxy_value = crits_config.http_proxy or None
         class_lookup = {'dns': 'DnsRequest', 'whois': 'WhoisRequest',
                         'ssl': 'SslRequest', 'enrichment': 'EnrichmentRequest',
                         'attributes': 'AttributeRequest'}
         class_name = class_lookup[request_type]
-        mod = __import__('passivetotal.libs.%s' % request_type,
-                         fromlist=[class_name])
+        mod = __import__(f'passivetotal.libs.{request_type}', fromlist=[class_name])
         loaded = getattr(mod, class_name)
         headers = {'PT-INTEGRATION': 'CRITs'}
-        authenticated = loaded(self.username, self.api_key, headers=headers,
-            http_proxy=http_proxy_value, https_proxy=http_proxy_value)
-
-        return authenticated
+        return loaded(
+            self.username,
+            self.api_key,
+            headers=headers,
+            http_proxy=http_proxy_value,
+            https_proxy=http_proxy_value,
+        )
 
     def _check_response(self, response):
         """Make sure there aren't any errors on the response."""
@@ -237,8 +231,11 @@ class PassiveTotalService(Service):
             self._add_result('WHOIS', ns, {'Key': 'Nameserver'})
         for section in ['admin', 'tech', 'registrant']:
             for key, value in iteritems(results.get(section, {})):
-                self._add_result('WHOIS Section %s' % section, value,
-                                 {'Key': self._gen_label(key)})
+                self._add_result(
+                    f'WHOIS Section {section}',
+                    value,
+                    {'Key': self._gen_label(key)},
+                )
 
     @call_supported_types(['Email', 'Indicator'])
     def do_whois_email_search(self, obj):
@@ -256,8 +253,7 @@ class PassiveTotalService(Service):
                              'Expires': record.get('expiresAt'),
                              'WHOIS Server': record.get('whoisServer'),
                              'Registrar': record.get('registrar')}
-                    self._add_result('WHOIS Email %s' % item,
-                                     record.get('domain'), stats)
+                    self._add_result(f'WHOIS Email {item}', record.get('domain'), stats)
         else:
             results = client.search_whois_by_field(query=query, field=field)
             self._check_response(results)
@@ -267,8 +263,7 @@ class PassiveTotalService(Service):
                          'Expires': record.get('expiresAt'),
                          'WHOIS Server': record.get('whoisServer'),
                          'Registrar': record.get('registrar')}
-                self._add_result('WHOIS Email %s' % query,
-                                 record.get('domain'), stats)
+                self._add_result(f'WHOIS Email {query}', record.get('domain'), stats)
 
     @call_supported_types(['IP', 'Indicator'])
     def do_ssl_query(self, obj):
@@ -305,7 +300,7 @@ class PassiveTotalService(Service):
         results = client.get_subdomains(query=query)
         self._check_response(results)
         for sub in results.get('subdomains', []):
-            full_domain = sub + "." + results.get('queryValue')
+            full_domain = f"{sub}." + results.get('queryValue')
             self._add_result('Subdomains', full_domain)
 
     @call_supported_types(['Domain', 'Indicator', 'IP'])
@@ -364,8 +359,7 @@ class PassiveTotalService(Service):
             stats = {'URL': record.get('sourceUrl'),
                      'Tags': ', '.join(record.get('tags'))}
             for indicator in record.get('inReport', []):
-                self._add_result('OSINT: %s' % record.get('source'),
-                                 indicator, stats)
+                self._add_result(f"OSINT: {record.get('source')}", indicator, stats)
 
     @call_supported_types(['Domain', 'Indicator', 'IP'])
     def do_malware_query(self, obj):

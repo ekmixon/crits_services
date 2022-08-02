@@ -25,7 +25,7 @@ class PrettyThings(Service):
         return {}
 
     @classmethod
-    def generate_config_form(self, config):
+    def generate_config_form(cls, config):
         pass
 
     def run(self, obj, config):

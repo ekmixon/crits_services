@@ -10,8 +10,7 @@ def config(raw_data):
         pe = pype32.PE(data=raw_data)
         string_list = get_strings(pe, 2)
         key, salt = 'HawkEyeKeylogger', '3000390039007500370038003700390037003800370038003600'.decode('hex')
-        config_dict = config_1(key, salt, string_list)
-        return config_dict
+        return config_1(key, salt, string_list)
     except Exception as e:
         return False
 
@@ -37,13 +36,10 @@ def decrypt_string(key, salt, coded):
 
 # Get a list of strings from a section
 def get_strings(pe, dir_type):
-    counter = 0
     string_list = []
     m = pe.ntHeaders.optionalHeader.dataDirectory[14].info
     for s in m.netMetaDataStreams[dir_type].info:
-        for offset, value in s.iteritems():
-            string_list.append(value)
-        counter += 1
+        string_list.extend(value for offset, value in s.iteritems())
     return string_list
         
 #Turn the strings in to a python config_dict

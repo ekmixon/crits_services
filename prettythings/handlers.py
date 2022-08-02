@@ -34,45 +34,31 @@ def campaign_heatmap(request):
                         if cam.name not in tmp:
                             tmp.append(cam.name)
                         break
-            else:
-                # Assuming we are checking the Unknown location, if this
-                # campaign has no location assigned, add it to Unknown.
-                if c[0] == 'Unknown':
-                    c[1] += 1
-                    if cam.name not in tmp:
-                        tmp.append(cam.name)
+            elif c[0] == 'Unknown':
+                c[1] += 1
+                if cam.name not in tmp:
+                    tmp.append(cam.name)
         # If we haven't added a campaign to this location, show "No Campaigns".
         # This also prevents a left-shift in the counting and header rows.
-        if len(tmp) == 0:
+        if not tmp:
             tmp.append("No Campaigns")
         tmp.sort()
         campaign_list += tmp
 
-    # list of the months going back in history and the activity of each campaign
-    # during that month
-    month_list = []
     # for each campaign, find associated events and emails. For each event and
     # email, use the created date to put it into the appropriate list.
     month_d = {}
-    idx = 0
     # this is a default row in the heatmap with all values set to 0.
     pad_list = [0 for _ in range(len(campaign_list))]
-    for c in campaign_list:
+    for idx, c in enumerate(campaign_list):
         build_month_d(pad_list, month_d, c, idx, events)
         build_month_d(pad_list, month_d, c, idx, emails)
-        idx += 1
-
-    # sort the months in reverse order for descending display.
-    for key in sorted(month_d, reverse=True):
-        month_list.append([key, month_d[key]])
-
-    final_data = {
+    month_list = [[key, month_d[key]] for key in sorted(month_d, reverse=True)]
+    return {
         'country_list': country_list,
         'campaign_list': campaign_list,
         'month_list': month_list,
     }
-
-    return final_data
 
 def build_month_d(pad_list, month_d, campaign, idx, elist):
     for e in elist:

@@ -50,23 +50,24 @@ class RATDecoderService(Service):
             raise ServiceConfigError("Not a PE.")
 
     @classmethod
-    def generate_config_form(self, config):
-        html = render_to_string('services_config_form.html',
-                                {'name': self.name,
-                                 'form': forms.RATDecoderConfigForm(initial=config),
-                                 'config_error': None})
+    def generate_config_form(cls, config):
+        html = render_to_string(
+            'services_config_form.html',
+            {
+                'name': cls.name,
+                'form': forms.RATDecoderConfigForm(initial=config),
+                'config_error': None,
+            },
+        )
+
         form = forms.RATDecoderConfigForm
         return form, html
 
 
     @staticmethod
     def get_config(existing_config):
-        # Generate default config from form and initial values.
-        config = {}
         fields = forms.RATDecoderConfigForm().fields
-        for name, field in fields.iteritems():
-            config[name] = field.initial
-            
+        config = {name: field.initial for name, field in fields.iteritems()}
         # If there is a config in the database, use values from that.
         if existing_config:
             for key, value in existing_config.iteritems():
@@ -78,7 +79,7 @@ class RATDecoderService(Service):
         f.write(raw_data)
         f.close()
         try:
-            subprocess.call("(upx -d %s)" %f.name, shell=True)
+            subprocess.call(f"(upx -d {f.name})", shell=True)
         except Exception as e:
             logger.error('UPX Error {0}'.format(e))
             return
@@ -110,24 +111,24 @@ class RATDecoderService(Service):
             raw_data = self.unpack(raw_data)
             family = self.yara_scan(raw_data, config['yaradir'])
 
-            if family == 'UPX':
-                # Failed to unpack
-                logger.error("  [!] Failed to unpack UPX")
-                return
+        if family == 'UPX':
+            # Failed to unpack
+            logger.error("  [!] Failed to unpack UPX")
+            return
 
         # Java Dropper Check
         if family == 'JavaDropper':
             raw_data = JavaDropper.run(raw_data)
             family = self.yara_scan(raw_data, config['yaradir'])
 
-            if family == 'JavaDropper':
-                logger.error("  [!] Failed to unpack JavaDropper")
-                return
+        if family == 'JavaDropper':
+            logger.error("  [!] Failed to unpack JavaDropper")
+            return
 
         if not family:
             logger.error("    [!] Unabel to match your sample to a decoder")
             return
-        
+
         # Import decoder
         try:
             module = imp.load_source(family,'{0}{1}.py'.format(str(config['decodersdir']),family))

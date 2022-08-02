@@ -26,12 +26,8 @@ class MMBotService(Service):
 
     @staticmethod
     def get_config(existing_config):
-        # Generate default config from form and initial values.
-        config = {}
         fields = forms.MMBotConfigForm().fields
-        for name, field in fields.iteritems():
-            config[name] = field.initial
-
+        config = {name: field.initial for name, field in fields.iteritems()}
         # If there is a config in the database, use values from that.
         if existing_config:
             for key, value in existing_config.iteritems():
@@ -45,11 +41,16 @@ class MMBotService(Service):
             raise ServiceConfigError("Not a valid Office file.")
 
     @classmethod
-    def generate_config_form(self, config):
-        html = render_to_string('services_config_form.html',
-                                {'name': self.name,
-                                'form': forms.MMBotConfigForm(initial=config),
-                                'config_error': None})
+    def generate_config_form(cls, config):
+        html = render_to_string(
+            'services_config_form.html',
+            {
+                'name': cls.name,
+                'form': forms.MMBotConfigForm(initial=config),
+                'config_error': None,
+            },
+        )
+
         form = forms.MMBotConfigForm
         return form, html
 

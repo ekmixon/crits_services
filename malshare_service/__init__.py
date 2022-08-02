@@ -39,12 +39,8 @@ class MalShareService(Service):
 
     @staticmethod
     def get_config(existing_config):
-        # Generate default config from form and initial values.
-        config = {}
         fields = forms.MalShareConfigForm().fields
-        for name, field in fields.iteritems():
-            config[name] = field.initial
-
+        config = {name: field.initial for name, field in fields.iteritems()}
         # If there is a config in the database, use values from that.
         if existing_config:
             for key, value in existing_config.iteritems():
@@ -56,11 +52,16 @@ class MalShareService(Service):
         return {'malshare_api_key': config['malshare_api_key']}
 
     @classmethod
-    def generate_config_form(self, config):
-        html = render_to_string('services_config_form.html',
-                                {'name': self.name,
-                                 'form': forms.MalShareConfigForm(initial=config),
-                                 'config_error': None})
+    def generate_config_form(cls, config):
+        html = render_to_string(
+            'services_config_form.html',
+            {
+                'name': cls.name,
+                'form': forms.MalShareConfigForm(initial=config),
+                'config_error': None,
+            },
+        )
+
         form = forms.MalShareConfigForm
         return form, html
 
@@ -96,8 +97,8 @@ class MalShareService(Service):
             response = urllib2.urlopen(req)
             sample_file = response.read()
         except Exception as e:
-            logger.error("MalShare: network connection error (%s)" % e)
-            self._error("Network connection error checking MalShare (%s)" % e)
+            logger.error(f"MalShare: network connection error ({e})")
+            self._error(f"Network connection error checking MalShare ({e})")
             return
 
         logger.info("Download completed")

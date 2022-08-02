@@ -12,10 +12,7 @@ from crits.events.event import Event
 from crits.vocabulary.objects import ObjectTypes
 
 def source_match(item_source, sources):
-    for source in item_source:
-        if source.name in sources:
-            return True
-    return False
+    return any(source.name in sources for source in item_source)
 
 def get_md5_objects(oid, sources, md5_list=[], x=0):
     obj_list = []
@@ -28,9 +25,14 @@ def get_md5_objects(oid, sources, md5_list=[], x=0):
 
     md5_list.append(s.md5)
 
-    for o in s.obj:
-        if o.object_type in [ObjectTypes.DOMAIN, ObjectTypes.IPV4_ADDRESS, ObjectTypes.C2_URL] and source_match(o.source, sources):
-            obj_list.append(o.value)
+    obj_list.extend(
+        o.value
+        for o in s.obj
+        if o.object_type
+        in [ObjectTypes.DOMAIN, ObjectTypes.IPV4_ADDRESS, ObjectTypes.C2_URL]
+        and source_match(o.source, sources)
+    )
+
     for r in s.relationships:
         if r.rel_type == 'Sample':
             s2 = class_from_id('Sample', r.object_id)
@@ -204,15 +206,9 @@ def execute_anb_campaign(cid, sources):
     return data
 
 def execute_anb(ctype, cid, sources):
-    data = {
-             'emails': '',
-             'samples': '',
-             'objects': ''
-           }
-
     if ctype == 'Campaign':
         return execute_anb_campaign(cid, sources)
     elif ctype == 'Event':
         return execute_anb_event(cid, sources)
     else:
-        return data
+        return {'emails': '', 'samples': '', 'objects': ''}

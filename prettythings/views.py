@@ -13,10 +13,9 @@ def main(request):
 
 @user_passes_test(user_can_view_data)
 def campaign_heatmap(request):
-    if request.method == "POST" and request.is_ajax():
-        results = handlers.campaign_heatmap(request)
-        return HttpResponse(json.dumps(results),
-                            content_type="application/json")
-    else:
+    if request.method != "POST" or not request.is_ajax():
         return render(request, 'pt_campaign_heatmap.html',
                                   {})
+    results = handlers.campaign_heatmap(request)
+    return HttpResponse(json.dumps(results),
+                        content_type="application/json")

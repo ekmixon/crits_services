@@ -30,11 +30,8 @@ class clamdService(Service):
 
     @staticmethod
     def get_config(existing_config):
-        config = {}
         fields = forms.clamdServiceConfigForm().fields
-        for name, field in fields.iteritems():
-            config[name] = field.initial
-
+        config = {name: field.initial for name, field in fields.iteritems()}
         # If there is a config in the database, use values from that.
         if existing_config:
             for key, value in existing_config.iteritems():
@@ -50,24 +47,18 @@ class clamdService(Service):
             raise ServiceConfigError("Socket path or hostname required.")
 
         # If socket is provided check it exists.
-        if clamd_sock_path:
-            if not os.path.exists(clamd_sock_path):
-                raise ServiceConfigError('Socket path not found.')
+        if clamd_sock_path and not os.path.exists(clamd_sock_path):
+            raise ServiceConfigError('Socket path not found.')
 
     @staticmethod
     def get_config_details(config):
-        display_config = {}
-
         # Rename keys so they render nice.
         fields = forms.clamdServiceConfigForm().fields
-        for name, field in fields.iteritems():
-            display_config[field.label] = config[name]
-
-        return display_config
+        return {field.label: config[name] for name, field in fields.iteritems()}
 
     @staticmethod
     def valid_for(obj):
-        if obj.filedata.grid_id == None:
+        if obj.filedata.grid_id is None:
             raise ServiceConfigError("Missing filedata.")
 
     @staticmethod
@@ -79,11 +70,16 @@ class clamdService(Service):
         return forms.clamdServiceConfigForm(data)
 
     @classmethod
-    def generate_config_form(self, config):
-        html = render_to_string('services_config_form.html',
-                                {'name': self.name,
-                                 'form': forms.clamdServiceConfigForm(initial=config),
-                                 'config_error': None})
+    def generate_config_form(cls, config):
+        html = render_to_string(
+            'services_config_form.html',
+            {
+                'name': cls.name,
+                'form': forms.clamdServiceConfigForm(initial=config),
+                'config_error': None,
+            },
+        )
+
         form = forms.clamdServiceConfigForm
         return form, html
 

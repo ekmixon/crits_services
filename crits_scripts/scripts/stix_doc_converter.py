@@ -83,8 +83,7 @@ class CRITsScript(CRITsBaseScript):
         """
 
         tree = etree.parse(xml)
-        root = self._add_namespaces(tree.getroot())
-        return root
+        return self._add_namespaces(tree.getroot())
 
     def _get_prefix_for_namespace(self, ns, nsmap):
         """Returns a namespace prefix for a given nsmap. This is used because lxml Element nsmap
@@ -94,11 +93,7 @@ class CRITsScript(CRITsBaseScript):
         ns -- the namespace we are attempting to find a prefix for
         nsmap -- a dictionary containing prefix-to-namespace mappings
         """
-        for k,v in nsmap.iteritems():
-            if v == ns:
-                return k
-
-        return None
+        return next((k for k, v in nsmap.iteritems() if v == ns), None)
 
     def _get_stix_package_list(self, e_root):
         """Returns a list of etree elements containing STIX_Package elements
@@ -108,12 +103,7 @@ class CRITsScript(CRITsBaseScript):
         """
         tag_package = "{%s}STIX_Package" % (self.XML_NS_STIX)
 
-        if e_root.tag == tag_package:
-            packages = [e_root] # if the root element is a STIX_Package, return a list with it as the only item
-        else:
-            packages = e_root.findall(tag_package)
-
-        return packages
+        return [e_root] if e_root.tag == tag_package else e_root.findall(tag_package)
 
     def _fix_domain_obj(self, xmlobj):
         """Changes CISCP Domain Objects into CybOX URI Objects
@@ -131,7 +121,7 @@ class CRITsScript(CRITsBaseScript):
             uri_obj_prefix = self._get_prefix_for_namespace(self.XML_NS_OBJ_URI, xmlobj.nsmap) # this should always return a value
 
             for domain_obj in domain_objs:
-                domain_obj.attrib[tag_xsi_type] = "%s:URIObjectType" % (uri_obj_prefix)
+                domain_obj.attrib[tag_xsi_type] = f"{uri_obj_prefix}:URIObjectType"
                 domain_obj.attrib['type'] = 'Domain Name'
                 value = domain_obj.find('{%s}Value' % (self.XML_NS_OBJ_DOMAIN))
                 if value is not None: value.tag = tag_uri_value
@@ -217,13 +207,9 @@ class CRITsScript(CRITsBaseScript):
         day = datetime.date.today().strftime("%Y%m%d")
 
         for package in packages:
-            fn = 'ciscp-'+ day +'-' + str(count) + ".xml"
+            fn = f'ciscp-{day}-{str(count)}.xml'
 
-            if dir:
-                path_output = os.path.join(dir, fn)
-            else:
-                path_output = fn
-
+            path_output = os.path.join(dir, fn) if dir else fn
             et = etree.ElementTree(package)
             et.write(path_output, pretty_print=True)
             count = count + 1
@@ -239,7 +225,7 @@ class CRITsScript(CRITsBaseScript):
             fn = args.infile
             f = open(fn, 'r')
         except IOError:
-            print("[!] Cannot open %s for reading!" % (fn))
+            print(f"[!] Cannot open {fn} for reading!")
             return
         except:
             print("[!] Cannot open file")

@@ -18,12 +18,8 @@ class Bit9Service(Service):
 
     @staticmethod
     def get_config(existing_config):
-        # Generate default config from form and initial values.
-        config = {}
         fields = forms.Bit9ConfigForm().fields
-        for name, field in fields.iteritems():
-            config[name] = field.initial
-
+        config = {name: field.initial for name, field in fields.iteritems()}
         # If there is a config in the database, use values from that.
         if existing_config:
             for key, value in existing_config.iteritems():
@@ -36,30 +32,29 @@ class Bit9Service(Service):
             raise ServiceConfigError("API key required.")
         if not config['bit9_server']:
             raise ServiceConfigError("Bit9 Server required.")
-        else:
-            if 'https://' not in config.get('bit9_server','') and 'http://' not in config.get('bit9_server',''):
-                raise ServiceConfigError("Bit9 Server required, include the http:// or https://") 
+        if 'https://' not in config.get('bit9_server','') and 'http://' not in config.get('bit9_server',''):
+            raise ServiceConfigError("Bit9 Server required, include the http:// or https://") 
 
     @classmethod
-    def generate_config_form(self, config):
+    def generate_config_form(cls, config):
         # Convert sigfiles to newline separated strings
-        html = render_to_string('services_config_form.html',
-                                {'name': self.name,
-                                 'form': forms.Bit9ConfigForm(initial=config),
-                                 'config_error': None})
+        html = render_to_string(
+            'services_config_form.html',
+            {
+                'name': cls.name,
+                'form': forms.Bit9ConfigForm(initial=config),
+                'config_error': None,
+            },
+        )
+
         form = forms.Bit9ConfigForm
         return form, html
 
     @staticmethod
     def get_config_details(config):
-        display_config = {}
-
         # Rename keys so they render nice.
         fields = forms.Bit9ConfigForm().fields
-        for name, field in fields.iteritems():
-            display_config[field.label] = config[name]
-
-        return display_config
+        return {field.label: config[name] for name, field in fields.iteritems()}
 
     def run(self, obj, config):
         try:
@@ -68,7 +63,7 @@ class Bit9Service(Service):
             self.get_hash(key,server, obj)
 
         except Exception as e:
-            self._error("Error: %s" % str(e))
+            self._error(f"Error: {str(e)}")
 
     def get_hash(self, apikey, server, obj):
         try: 
@@ -76,7 +71,7 @@ class Bit9Service(Service):
             if obj._meta['crits_type'] == 'Indicator':
                 if obj['ind_type'] == 'MD5':
                     url = ''.join((server,"/api/bit9platform/v1/filecatalog?q=md5:",obj['value']))
-                
+
                 elif obj['ind_type'] == 'SHA1':    
                     url = ''.join((server,"/api/bit9platform/v1/filecatalog?q=sha1:",obj['value']))
 
@@ -86,7 +81,7 @@ class Bit9Service(Service):
                 else:
                     self._add_result("Service Sucessfully ran", "Indicator type is not searchable in BIT9" )
                     return
-            
+
             elif obj._meta['crits_type'] == 'Sample':
                 url = ''.join((server,"/api/bit9platform/v1/filecatalog?q=md5:",obj.md5))
 
@@ -98,8 +93,7 @@ class Bit9Service(Service):
             response = requests.get(url,headers=headers, verify=False)
             self._info("Filecatalog query status code: {0}".format(response.status_code))
             if response.status_code == 200:
-                all_json = response.json()
-                if all_json:
+                if all_json := response.json():
                     if 'computerId' in all_json[0]:
                         hostname = self.get_computer(server,apikey,all_json[0]['computerId'])
                         if hostname is not None:
@@ -110,32 +104,31 @@ class Bit9Service(Service):
                     else:
                           self._error("\'computerId\' key was not found!")
                 else:
-                    self._info("No result found!")       
+                    self._info("No result found!")
             else:
-                  self._error("Error: {0}".format(response.status_code))
+                self._error("Error: {0}".format(response.status_code))
 
         except Exception as e:
-            self._error("Error: %s" % str(e))   
+            self._error(f"Error: {str(e)}")   
 
     def get_computer(self, server, apikey, id):
         try:
-            url = server + "/api/bit9platform/v1/computer?q=id:" + str(id)
+            url = f"{server}/api/bit9platform/v1/computer?q=id:{str(id)}"
             headers = {'X-Auth-Token': apikey}
             response = requests.get(url,headers=headers, verify=False)
             self._info("Computer query status code: {0}".format(response.status_code))
             if response.status_code == 200:
-                all_json = response.json()
-                if all_json:
+                if all_json := response.json():
                     if 'name' in all_json[0]:
                         return all_json[0]['name']
                     else:
                         self._error("\'name\' key was not found!")
                 else:
-                    self._info("No result found!") 
+                    self._info("No result found!")
             else:
-                    self._error("Error: {0}".format(response.status_code))
+                self._error("Error: {0}".format(response.status_code))
 
             return None
-    
+
         except Exception as e:
-                self._error("Error: %s" % str(e)) 
+            self._error(f"Error: {str(e)}") 

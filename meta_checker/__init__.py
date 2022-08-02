@@ -40,10 +40,7 @@ class MetaChecker(Service):
                 continue
 
             for result in result_doc["results"]:
-                if "md5" in result:
-                    res_type = "md5"
-                else:
-                    res_type = "result"
+                res_type = "md5" if "md5" in result else "result"
                 res_hash = "{0}-{1}".format(result_doc["service_name"], result[res_type])
                 if result[res_type] and res_hash not in completed_results:
                     total_count = self._get_meta_count(res_type, result[res_type])
@@ -59,6 +56,8 @@ class MetaChecker(Service):
     def _get_meta_count(self, meta_type, meta_val):
         query_field = "results.{0}".format(meta_type)
         query = {query_field: meta_val}
-        total_count = AnalysisResult.objects(object_type='Sample',
-                                             __raw__=query).only('id').count()
-        return total_count
+        return (
+            AnalysisResult.objects(object_type='Sample', __raw__=query)
+            .only('id')
+            .count()
+        )

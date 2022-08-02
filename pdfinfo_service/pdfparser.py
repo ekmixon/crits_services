@@ -72,13 +72,12 @@ import traceback
 from numpy import zeros
 
 if sys.version_info[0] >= 3:
-    from io import BytesIO
     import urllib.request
     urllib23 = urllib.request
 else:
-    from io import BytesIO
     import urllib2
     urllib23 = urllib2
+from io import BytesIO
 try:
     import yara
 except:
@@ -102,24 +101,14 @@ PDF_ELEMENT_MALFORMED = 6
 
 #Convert 2 Bytes If Python 3
 def C2BIP3(string):
-    if sys.version_info[0] > 2:
-        return bytes([ord(x) for x in string])
-    else:
-        return string
+    return bytes(ord(x) for x in string) if sys.version_info[0] > 2 else string
 
 def Timestamp(epoch=None):
-    if epoch == None:
-        localTime = time.localtime()
-    else:
-        localTime = time.localtime(epoch)
-    return '%04d%02d%02d-%02d%02d%02d' % localTime[0:6]
+    localTime = time.localtime() if epoch is None else time.localtime(epoch)
+    return '%04d%02d%02d-%02d%02d%02d' % localTime[:6]
 
 def CopyWithoutWhiteSpace(content):
-    result = []
-    for token in content:
-        if token[0] != CHAR_WHITESPACE:
-            result.append(token)
-    return result
+    return [token for token in content if token[0] != CHAR_WHITESPACE]
 
 def Obj2Str(content):
     return ''.join(map(lambda x: repr(x[1])[1:-1], CopyWithoutWhiteSpace(content)))
@@ -134,7 +123,7 @@ class cPDFDocument:
                 else:
                     self.infile = urllib23.urlopen(file)
             except urllib23.HTTPError:
-                print('Error accessing URL %s' % file)
+                print(f'Error accessing URL {file}')
                 print(sys.exc_info()[1])
                 sys.exit()
         elif file.lower().endswith('.zip'):
@@ -142,7 +131,7 @@ class cPDFDocument:
                 self.zipfile = zipfile.ZipFile(file, 'r')
                 self.infile = self.zipfile.open(self.zipfile.infolist()[0], 'r', C2BIP3('infected'))
             except:
-                print('Error opening file %s' % file)
+                print(f'Error opening file {file}')
                 print(sys.exc_info()[1])
                 sys.exit()
         else:
@@ -150,7 +139,7 @@ class cPDFDocument:
                 import io
                 self.infile = io.BytesIO(file)
             except:
-                print('Error opening file %s' % file)
+                print(f'Error opening file {file}')
                 print(sys.exc_info()[1])
                 sys.exit()
         self.ungetted = []
@@ -172,9 +161,9 @@ class cPDFDocument:
         self.ungetted.append(byte)
 
 def CharacterClass(byte):
-    if byte == 0 or byte == 9 or byte == 10 or byte == 12 or byte == 13 or byte == 32:
+    if byte in [0, 9, 10, 12, 13, 32]:
         return CHAR_WHITESPACE
-    if byte == 0x28 or byte == 0x29 or byte == 0x3C or byte == 0x3E or byte == 0x5B or byte == 0x5D or byte == 0x7B or byte == 0x7D or byte == 0x2F or byte == 0x25:
+    if byte in [0x28, 0x29, 0x3C, 0x3E, 0x5B, 0x5D, 0x7B, 0x7D, 0x2F, 0x25]:
         return CHAR_DELIMITER
     return CHAR_REGULAR
 
@@ -189,10 +178,10 @@ class cPDFTokenizer:
     def Token(self):
         if len(self.ungetted) != 0:
             return self.ungetted.pop()
-        if self.oPDF == None:
+        if self.oPDF is None:
             return None
         self.byte = self.oPDF.byte()
-        if self.byte == None:
+        if self.byte is None:
             self.oPDF = None
             return None
         elif CharacterClass(self.byte) == CHAR_WHITESPACE:
@@ -200,10 +189,10 @@ class cPDFTokenizer:
             while self.byte != None and CharacterClass(self.byte) == CHAR_WHITESPACE:
                 file_str.write(chr(self.byte))
                 self.byte = self.oPDF.byte()
-            if self.byte != None:
-                self.oPDF.unget(self.byte)
-            else:
+            if self.byte is None:
                 self.oPDF = None
+            else:
+                self.oPDF.unget(self.byte)
             self.token = file_str.getvalue()
             return (CHAR_WHITESPACE, self.token)
         elif CharacterClass(self.byte) == CHAR_REGULAR:
@@ -211,10 +200,10 @@ class cPDFTokenizer:
             while self.byte != None and CharacterClass(self.byte) == CHAR_REGULAR:
                 file_str.write(chr(self.byte))
                 self.byte = self.oPDF.byte()
-            if self.byte != None:
-                self.oPDF.unget(self.byte)
-            else:
+            if self.byte is None:
                 self.oPDF = None
+            else:
+                self.oPDF.unget(self.byte)
             self.token = file_str.getvalue()
             return (CHAR_REGULAR, self.token)
         else:
@@ -222,31 +211,28 @@ class cPDFTokenizer:
                 self.byte = self.oPDF.byte()
                 if self.byte == 0x3C:
                     return (CHAR_DELIMITER, '<<')
-                else:
-                    self.oPDF.unget(self.byte)
-                    return (CHAR_DELIMITER, '<')
+                self.oPDF.unget(self.byte)
+                return (CHAR_DELIMITER, '<')
             elif self.byte == 0x3E:
                 self.byte = self.oPDF.byte()
                 if self.byte == 0x3E:
                     return (CHAR_DELIMITER, '>>')
-                else:
-                    self.oPDF.unget(self.byte)
-                    return (CHAR_DELIMITER, '>')
+                self.oPDF.unget(self.byte)
+                return (CHAR_DELIMITER, '>')
             elif self.byte == 0x25:
                 file_str = BytesIO()
                 while self.byte != None:
                     file_str.write(chr(self.byte))
-                    if self.byte == 10 or self.byte == 13:
+                    if self.byte in [10, 13]:
                         self.byte = self.oPDF.byte()
                         break
                     self.byte = self.oPDF.byte()
-                if self.byte != None:
-                    if self.byte == 10:
-                        file_str.write(chr(self.byte))
-                    else:
-                        self.oPDF.unget(self.byte)
-                else:
+                if self.byte is None:
                     self.oPDF = None
+                elif self.byte == 10:
+                    file_str.write(chr(self.byte))
+                else:
+                    self.oPDF.unget(self.byte)
                 self.token = file_str.getvalue()
                 return (CHAR_DELIMITER, self.token)
             return (CHAR_DELIMITER, chr(self.byte))
@@ -274,107 +260,103 @@ class cPDFParser:
                 self.token = self.oPDFTokenizer.Token()
             else:
                 self.token = self.oPDFTokenizer.TokenIgnoreWhiteSpace()
-            if self.token:
-                if self.token[0] == CHAR_DELIMITER:
-                    if self.token[1][0] == '%':
-                        if self.context == CONTEXT_OBJ:
-                            self.content.append(self.token)
-                        else:
-                            return cPDFElementComment(self.token[1])
-                    elif self.token[1] == '/':
-                        self.token2 = self.oPDFTokenizer.Token()
-                        if self.token2[0] == CHAR_REGULAR:
-                            if self.context != CONTEXT_NONE:
-                                self.content.append((CHAR_DELIMITER, self.token[1] + self.token2[1]))
-                            elif self.verbose:
-                                print('todo 1: %s' % (self.token[1] + self.token2[1]))
-                        else:
-                            self.oPDFTokenizer.unget(self.token2)
-                            if self.context != CONTEXT_NONE:
-                                self.content.append(self.token)
-                            elif self.verbose:
-                                print('todo 2: %d %s' % (self.token[0], repr(self.token[1])))
-                    elif self.context != CONTEXT_NONE:
-                        self.content.append(self.token)
-                    elif self.verbose:
-                        print('todo 3: %d %s' % (self.token[0], repr(self.token[1])))
-                elif self.token[0] == CHAR_WHITESPACE:
-                    if self.context != CONTEXT_NONE:
-                        self.content.append(self.token)
-                    elif self.verbose:
-                        print('todo 4: %d %s' % (self.token[0], repr(self.token[1])))
-                else:
-                    if self.context == CONTEXT_OBJ:
-                        if self.token[1] == 'endobj':
-                            self.oPDFElementIndirectObject = cPDFElementIndirectObject(self.objectId, self.objectVersion, self.content)
-                            self.context = CONTEXT_NONE
-                            self.content = []
-                            return self.oPDFElementIndirectObject
-                        else:
-                            self.content.append(self.token)
-                    elif self.context == CONTEXT_TRAILER:
-                        if self.token[1] == 'startxref' or self.token[1] == 'xref':
-                            self.oPDFElementTrailer = cPDFElementTrailer(self.content)
-                            self.oPDFTokenizer.unget(self.token)
-                            self.context = CONTEXT_NONE
-                            self.content = []
-                            return self.oPDFElementTrailer
-                        else:
-                            self.content.append(self.token)
-                    elif self.context == CONTEXT_XREF:
-                        if self.token[1] == 'trailer' or self.token[1] == 'xref':
-                            self.oPDFElementXref = cPDFElementXref(self.content)
-                            self.oPDFTokenizer.unget(self.token)
-                            self.context = CONTEXT_NONE
-                            self.content = []
-                            return self.oPDFElementXref
-                        else:
-                            self.content.append(self.token)
-                    else:
-                        if IsNumeric(self.token[1]):
-                            self.token2 = self.oPDFTokenizer.TokenIgnoreWhiteSpace()
-                            try:
-                                if IsNumeric(self.token2[1]):
-                                    self.token3 = self.oPDFTokenizer.TokenIgnoreWhiteSpace()
-                                    if self.token3[1] == 'obj':
-                                        self.objectId = eval(self.token[1])
-                                        self.objectVersion = eval(self.token2[1])
-                                        self.context = CONTEXT_OBJ
-                                    else:
-                                        self.oPDFTokenizer.unget(self.token3)
-                                        self.oPDFTokenizer.unget(self.token2)
-                                        if self.verbose:
-                                            print('todo 6: %d %s' % (self.token[0], repr(self.token[1])))
-                                else:
-                                    self.oPDFTokenizer.unget(self.token2)
-                                    if self.verbose:
-                                        print('todo 7: %d %s' % (self.token[0], repr(self.token[1])))
-                            except:
-                                blank = None
-                        elif self.token[1] == 'trailer':
-                            self.context = CONTEXT_TRAILER
-                            self.content = [self.token]
-                        elif self.token[1] == 'xref':
-                            self.context = CONTEXT_XREF
-                            self.content = [self.token]
-                        elif self.token[1] == 'startxref':
-                            self.token2 = self.oPDFTokenizer.TokenIgnoreWhiteSpace()
-                            if self.token2 and IsNumeric(self.token2[1]):
-                                return cPDFElementStartxref(eval(self.token2[1]))
-                            else:
-                                self.oPDFTokenizer.unget(self.token2)
-                                if self.verbose:
-                                    print('todo 9: %d %s' % (self.token[0], repr(self.token[1])))
-                        elif self.extract:
-                            self.bytes = ''
-                            while self.token:
-                                self.bytes += self.token[1]
-                                self.token = self.oPDFTokenizer.Token()
-                            return cPDFElementMalformed(self.bytes)
-                        elif self.verbose:
-                            print('todo 10: %d %s' % (self.token[0], repr(self.token[1])))
-            else:
+            if not self.token:
                 break
+            if self.token[0] == CHAR_DELIMITER:
+                if self.token[1][0] == '%':
+                    if self.context == CONTEXT_OBJ:
+                        self.content.append(self.token)
+                    else:
+                        return cPDFElementComment(self.token[1])
+                elif self.token[1] == '/':
+                    self.token2 = self.oPDFTokenizer.Token()
+                    if self.token2[0] == CHAR_REGULAR:
+                        if self.context != CONTEXT_NONE:
+                            self.content.append((CHAR_DELIMITER, self.token[1] + self.token2[1]))
+                        elif self.verbose:
+                            print(f'todo 1: {self.token[1] + self.token2[1]}')
+                    else:
+                        self.oPDFTokenizer.unget(self.token2)
+                        if self.context != CONTEXT_NONE:
+                            self.content.append(self.token)
+                        elif self.verbose:
+                            print('todo 2: %d %s' % (self.token[0], repr(self.token[1])))
+                elif self.context != CONTEXT_NONE:
+                    self.content.append(self.token)
+                elif self.verbose:
+                    print('todo 3: %d %s' % (self.token[0], repr(self.token[1])))
+            elif self.token[0] == CHAR_WHITESPACE:
+                if self.context != CONTEXT_NONE:
+                    self.content.append(self.token)
+                elif self.verbose:
+                    print('todo 4: %d %s' % (self.token[0], repr(self.token[1])))
+            elif self.context == CONTEXT_OBJ:
+                if self.token[1] == 'endobj':
+                    self.oPDFElementIndirectObject = cPDFElementIndirectObject(self.objectId, self.objectVersion, self.content)
+                    self.context = CONTEXT_NONE
+                    self.content = []
+                    return self.oPDFElementIndirectObject
+                else:
+                    self.content.append(self.token)
+            elif self.context == CONTEXT_TRAILER:
+                if self.token[1] in ['startxref', 'xref']:
+                    self.oPDFElementTrailer = cPDFElementTrailer(self.content)
+                    self.oPDFTokenizer.unget(self.token)
+                    self.context = CONTEXT_NONE
+                    self.content = []
+                    return self.oPDFElementTrailer
+                else:
+                    self.content.append(self.token)
+            elif self.context == CONTEXT_XREF:
+                if self.token[1] in ['trailer', 'xref']:
+                    self.oPDFElementXref = cPDFElementXref(self.content)
+                    self.oPDFTokenizer.unget(self.token)
+                    self.context = CONTEXT_NONE
+                    self.content = []
+                    return self.oPDFElementXref
+                else:
+                    self.content.append(self.token)
+            elif IsNumeric(self.token[1]):
+                self.token2 = self.oPDFTokenizer.TokenIgnoreWhiteSpace()
+                try:
+                    if IsNumeric(self.token2[1]):
+                        self.token3 = self.oPDFTokenizer.TokenIgnoreWhiteSpace()
+                        if self.token3[1] == 'obj':
+                            self.objectId = eval(self.token[1])
+                            self.objectVersion = eval(self.token2[1])
+                            self.context = CONTEXT_OBJ
+                        else:
+                            self.oPDFTokenizer.unget(self.token3)
+                            self.oPDFTokenizer.unget(self.token2)
+                            if self.verbose:
+                                print('todo 6: %d %s' % (self.token[0], repr(self.token[1])))
+                    else:
+                        self.oPDFTokenizer.unget(self.token2)
+                        if self.verbose:
+                            print('todo 7: %d %s' % (self.token[0], repr(self.token[1])))
+                except:
+                    blank = None
+            elif self.token[1] == 'trailer':
+                self.context = CONTEXT_TRAILER
+                self.content = [self.token]
+            elif self.token[1] == 'xref':
+                self.context = CONTEXT_XREF
+                self.content = [self.token]
+            elif self.token[1] == 'startxref':
+                self.token2 = self.oPDFTokenizer.TokenIgnoreWhiteSpace()
+                if self.token2 and IsNumeric(self.token2[1]):
+                    return cPDFElementStartxref(eval(self.token2[1]))
+                self.oPDFTokenizer.unget(self.token2)
+                if self.verbose:
+                    print('todo 9: %d %s' % (self.token[0], repr(self.token[1])))
+            elif self.extract:
+                self.bytes = ''
+                while self.token:
+                    self.bytes += self.token[1]
+                    self.token = self.oPDFTokenizer.Token()
+                return cPDFElementMalformed(self.bytes)
+            elif self.verbose:
+                print('todo 10: %d %s' % (self.token[0], repr(self.token[1])))
 
 class cPDFElementComment:
     def __init__(self, comment):
@@ -397,7 +379,7 @@ class cPDFElementTrailer:
 
     def Contains(self, keyword):
         data = ''
-        for i in range(0, len(self.content)):
+        for i in range(len(self.content)):
             if self.content[i][1] == 'stream':
                 break
             else:
@@ -405,10 +387,7 @@ class cPDFElementTrailer:
         return data.upper().find(keyword.upper()) != -1
 
 def IIf(expr, truepart, falsepart):
-    if expr:
-        return truepart
-    else:
-        return falsepart
+    return truepart if expr else falsepart
 
 class cPDFElementIndirectObject:
     def __init__(self, id, version, content):
@@ -420,38 +399,47 @@ class cPDFElementIndirectObject:
     def GetType(self):
         content = CopyWithoutWhiteSpace(self.content)
         dictionary = 0
-        for i in range(0, len(content)):
-            if content[i][0] == CHAR_DELIMITER and content[i][1] == '<<':
-                dictionary += 1
-            if content[i][0] == CHAR_DELIMITER and content[i][1] == '>>':
-                dictionary -= 1
+        for i in range(len(content)):
+            if content[i][0] == CHAR_DELIMITER:
+                if content[i][1] == '<<':
+                    dictionary += 1
+                if content[i][1] == '>>':
+                    dictionary -= 1
             if dictionary == 1 and content[i][0] == CHAR_DELIMITER and EqualCanonical(content[i][1], '/Type') and i < len(content) - 1:
                 return content[i+1][1]
         return ''
 
     def GetReferences(self):
         content = CopyWithoutWhiteSpace(self.content)
-        references = []
-        for i in range(0, len(content)):
-            if i > 1 and content[i][0] == CHAR_REGULAR and content[i][1] == 'R' and content[i-2][0] == CHAR_REGULAR and IsNumeric(content[i-2][1]) and content[i-1][0] == CHAR_REGULAR and IsNumeric(content[i-1][1]):
-                references.append((content[i-2][1], content[i-1][1], content[i][1]))
-        return references
+        return [
+            (content[i - 2][1], content[i - 1][1], content[i][1])
+            for i in range(len(content))
+            if i > 1
+            and content[i][0] == CHAR_REGULAR
+            and content[i][1] == 'R'
+            and content[i - 2][0] == CHAR_REGULAR
+            and IsNumeric(content[i - 2][1])
+            and content[i - 1][0] == CHAR_REGULAR
+            and IsNumeric(content[i - 1][1])
+        ]
 
     def References(self, index):
-        for ref in self.GetReferences():
-            if ref[0] == index:
-                return True
-        return False
+        return any(ref[0] == index for ref in self.GetReferences())
 
     def ContainsStream(self):
-        for i in range(0, len(self.content)):
-            if self.content[i][0] == CHAR_REGULAR and self.content[i][1] == 'stream':
-                return self.content[0:i]
-        return False
+        return next(
+            (
+                self.content[:i]
+                for i in range(len(self.content))
+                if self.content[i][0] == CHAR_REGULAR
+                and self.content[i][1] == 'stream'
+            ),
+            False,
+        )
 
     def Contains(self, keyword):
         data = ''
-        for i in range(0, len(self.content)):
+        for i in range(len(self.content)):
             if self.content[i][1] == 'stream':
                 break
             else:
@@ -476,7 +464,7 @@ class cPDFElementIndirectObject:
         countDirectories = 0
         data = ''
         filters = []
-        for i in range(0, len(self.content)):
+        for i in range(len(self.content)):
             if state == 'start':
                 if self.content[i][0] == CHAR_DELIMITER and self.content[i][1] == '<<':
                     countDirectories += 1
@@ -506,10 +494,7 @@ class cPDFElementIndirectObject:
                 state = 'stream-concat'
             elif state == 'stream-concat':
                 if self.content[i][0] == CHAR_REGULAR and self.content[i][1] == 'endstream':
-                    if filter:
-                        return self.Decompress(data, filters)
-                    else:
-                        return data
+                    return self.Decompress(data, filters) if filter else data
                 else:
                     data += self.content[i][1]
             else:
@@ -525,7 +510,7 @@ class cPDFElementIndirectObject:
                     message = 'FlateDecode decompress failed'
                     if len(data) > 0 and ord(data[0]) & 0x0F != 8:
                         message += ', unexpected compression method: %02x' % ord(data[0])
-                    return message + '. zlib.error %s' % e.message
+                    return message + f'. zlib.error {e.message}'
             elif EqualCanonical(filter, '/ASCIIHexDecode') or EqualCanonical(filter, '/AHx'):
                 try:
                     data = ASCIIHexDecode(data)
@@ -546,14 +531,9 @@ class cPDFElementIndirectObject:
                     data = RunLengthDecode(data)
                 except:
                     return 'RunLengthDecode decompress failed'
-#            elif i.startswith('/CC')                        # CCITTFaxDecode
-#            elif i.startswith('/DCT')                       # DCTDecode
             else:
-                return 'Unsupported filter: %s' % repr(filters)
-        if len(filters) == 0:
-            return 'No filters'
-        else:
-            return data
+                return f'Unsupported filter: {repr(filters)}'
+        return 'No filters' if len(filters) == 0 else data
 
     def StreamYARAMatch(self, rules, filter):
         if not self.ContainsStream():
@@ -638,7 +618,7 @@ class cPDFParseDictionary:
                     value.append(tokens[0][1])
                 elif value != [] and value[0] == '[' and tokens[0][1] != ']':
                     value.append(tokens[0][1])
-                elif value != [] and value[0] == '[' and tokens[0][1] == ']':
+                elif value != [] and value[0] == '[':
                     value.append(tokens[0][1])
                     dictionary.append((key, value))
                     value = []
@@ -656,37 +636,32 @@ class cPDFParseDictionary:
         return self.parsed
 
     def PrettyPrintSub(self, prefix, dictionary):
-        if dictionary != None:
-            print('%s<<' % prefix)
-            for e in dictionary:
-                if e[1] == []:
-                    print('%s  %s' % (prefix, e[0]))
-                elif type(e[1][0]) == type(''):
-                    value = ''.join(e[1]).strip()
-                    reprValue = repr(value)
-                    if "'" + value + "'" != reprValue:
-                        value = reprValue
-                    print('%s  %s %s' % (prefix, e[0], value))
-                else:
-                    print('%s  %s' % (prefix, e[0]))
-                    self.PrettyPrintSub(prefix + '    ', e[1])
-            print('%s>>' % prefix)
+        if dictionary is None:
+            return
+        print(f'{prefix}<<')
+        for e in dictionary:
+            if e[1] == []:
+                print(f'{prefix}  {e[0]}')
+            elif type(e[1][0]) == type(''):
+                value = ''.join(e[1]).strip()
+                reprValue = repr(value)
+                if "'" + value + "'" != reprValue:
+                    value = reprValue
+                print(f'{prefix}  {e[0]} {value}')
+            else:
+                print(f'{prefix}  {e[0]}')
+                self.PrettyPrintSub(f'{prefix}    ', e[1])
+        print(f'{prefix}>>')
 
     def PrettyPrint(self, prefix):
         self.PrettyPrintSub(prefix, self.parsed)
 
     def Get(self, select):
-        for key, value in self.parsed:
-            if key == select:
-                return value
-        return None
+        return next((value for key, value in self.parsed if key == select), None)
 
 def FormatOutput(data, raw):
     if raw:
-        if type(data) == type([]):
-            return ''.join(map(lambda x: x[1], data))
-        else:
-            return data
+        return ''.join(map(lambda x: x[1], data)) if type(data) == type([]) else data
     else:
         return repr(data)
 

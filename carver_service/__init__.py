@@ -24,7 +24,7 @@ class CarverService(Service):
 
     @staticmethod
     def valid_for(obj):
-        if obj.filedata.grid_id == None:
+        if obj.filedata.grid_id is None:
             raise ServiceConfigError("Missing filedata.")
 
     @staticmethod
@@ -33,19 +33,21 @@ class CarverService(Service):
             # The values are submitted as a list for some reason.
             data = {'start': config['start'][0], 'end': config['end'][0]}
         else:
-            data = {}
             fields = forms.CarverRunForm().fields
-            for name, field in fields.iteritems():
-                data[name] = field.initial
+            data = {name: field.initial for name, field in fields.iteritems()}
         return forms.CarverRunForm(data)
 
     @classmethod
-    def generate_runtime_form(self, analyst, config, crits_type, identifier):
-        return render_to_string('services_run_form.html',
-                                {'name': self.name,
-                                 'form': forms.CarverRunForm(),
-                                 'crits_type': crits_type,
-                                 'identifier': identifier})
+    def generate_runtime_form(cls, analyst, config, crits_type, identifier):
+        return render_to_string(
+            'services_run_form.html',
+            {
+                'name': cls.name,
+                'form': forms.CarverRunForm(),
+                'crits_type': crits_type,
+                'identifier': identifier,
+            },
+        )
 
     def run(self, obj, config):
         start_offset = config['start']
@@ -64,10 +66,7 @@ class CarverService(Service):
             return
 
 
-        data = obj.filedata.read()[start_offset:end_offset]
-        if not data:
-            self._error("No data.")
-        else:
+        if data := obj.filedata.read()[start_offset:end_offset]:
             filename = hashlib.md5(data).hexdigest()
             handle_file(filename, data, obj.source,
                         related_id=str(obj.id),
@@ -78,4 +77,6 @@ class CarverService(Service):
                         user=self.current_task.user)
             # Filename is just the md5 of the data...
             self._add_result("file_added", filename, {'md5': filename})
+        else:
+            self._error("No data.")
         return

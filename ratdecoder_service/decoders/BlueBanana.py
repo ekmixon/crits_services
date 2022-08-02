@@ -14,18 +14,18 @@ def decrypt_conf(conFile):
     key1 = '15af8sd4s1c5s511'
     key2 = '4e3f5a4c592b243f'
     first = decrypt_aes(key1, conFile.decode('hex'))
-    second = decrypt_aes(key2, first[:-16].decode('hex'))
-    return second
+    return decrypt_aes(key2, first[:-16].decode('hex'))
     
 def extract_config(raw_conf):
-    conf = {}
     clean = filter(lambda x: x in string.printable, raw_conf)
     fields = clean.split('<separator>')
 
-    conf['Domain'] = fields[0]
-    conf['Password'] = fields[1]
-    conf['Port1'] = fields[2]
-    conf['Port2'] = fields[3]
+    conf = {
+        'Domain': fields[0],
+        'Password': fields[1],
+        'Port1': fields[2],
+        'Port2': fields[3],
+    }
 
     if len(fields) > 4:
         conf['InstallName'] = fields[4]

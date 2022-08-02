@@ -49,11 +49,7 @@ class PDFInfoService(Service):
         Inspect PDF header and return version
         """
         header_ver = re.compile('%PDF-([A-Za-z0-9\.]{1,3})[\r\n]', re.M)
-        matches = header_ver.match(data)
-        if matches:
-            return matches.group(1)
-        else:
-            return "0.0"
+        return matches.group(1) if (matches := header_ver.match(data)) else "0.0"
 
     def run_pdfid(self, data):
         """
@@ -68,7 +64,7 @@ class PDFInfoService(Service):
             pdfid_dict = json.loads(json_data)[0]
         except UnicodeDecodeError:
             xml_json_success = False
-        
+
         if xml_json_success:
             try:
                 for item in pdfid_dict['pdfid']['keywords']['keyword']:
@@ -89,7 +85,7 @@ class PDFInfoService(Service):
             not detect objects found with objects_regex defs.
         """
         oPDFParser = pdfparser.cPDFParser(data)
-        done = False 
+        done = False
         objects = {}
         objects_regex = [(r'js', r'\/JavaScript\s(\d+)\s\d+\sR'),
                         (r'js', r'\/JS\s(\d+)\s\d+\sR'),
@@ -103,44 +99,42 @@ class PDFInfoService(Service):
                         (r'file', '/F\r\n')]
 
         #Walk the PDF objects
-        while done == False:
+        while not done:
             try:
                 pdf_object = oPDFParser.GetObject()
             except Exception as e:
                 pdf_object = None
 
-            if pdf_object != None:
-                if pdf_object.type in [pdfparser.PDF_ELEMENT_INDIRECT_OBJECT]:
-                    #See if this PDF object has references to items of interest
-                    rawContent = pdfparser.FormatOutput(pdf_object.content, True)
-                    pdf_references = pdf_object.GetReferences()
-                    if pdf_references:
-                        #Match getReferences() with objects_regex results
-                        for item in objects_regex:
-                            matches = re.findall(item[1],rawContent[:search_size])
-                            for match in matches:
-                                for ref in pdf_references:
-                                    #Record found items
-                                    if match == ref[0]:
-                                        if objects.get(item[0]):
-                                            objects[item[0]].append(match)
-                                        else:
-                                            objects[item[0]] = [match]
-                    #Find items within the current object.
-                    for item in objects_str:
-                        if pdf_object.Contains(item[1]):
-                            if objects.get(item[0]):
-                                objects[item[0]].append(str(pdf_object.id))
-                            else:
-                                objects[item[0]] = [str(pdf_object.id)]
-            else:
+            if pdf_object is None:
                 done = True
+            elif pdf_object.type in [pdfparser.PDF_ELEMENT_INDIRECT_OBJECT]:
+                #See if this PDF object has references to items of interest
+                rawContent = pdfparser.FormatOutput(pdf_object.content, True)
+                if pdf_references := pdf_object.GetReferences():
+                    #Match getReferences() with objects_regex results
+                    for item in objects_regex:
+                        matches = re.findall(item[1],rawContent[:search_size])
+                        for match in matches:
+                            for ref in pdf_references:
+                                #Record found items
+                                if match == ref[0]:
+                                    if objects.get(item[0]):
+                                        objects[item[0]].append(match)
+                                    else:
+                                        objects[item[0]] = [match]
+                #Find items within the current object.
+                for item in objects_str:
+                    if pdf_object.Contains(item[1]):
+                        if objects.get(item[0]):
+                            objects[item[0]].append(str(pdf_object.id))
+                        else:
+                            objects[item[0]] = [str(pdf_object.id)]
         return objects
 
     def run_pdfparser(self, data):
         """
         Uses pdf-parser to get information for each object.
-        """        
+        """    
         oPDFParser = pdfparser.cPDFParser(data)
         done = False
         found_objects = {}
@@ -148,76 +142,75 @@ class PDFInfoService(Service):
         #Walk the PDF and inspect PDF objects
         found_objects = self.object_search(data)
 
-        while done == False:
+        while not done:
             try:
                 pdf_object = oPDFParser.GetObject()
             except Exception as e:
                 pdf_object = None
 
-            if pdf_object != None:
-                if pdf_object.type in [pdfparser.PDF_ELEMENT_INDIRECT_OBJECT]:
-                    #Get general information for this PDF object
-                    rawContent = pdfparser.FormatOutput(pdf_object.content, True)
-                    section_md5_digest = hashlib.md5(rawContent).hexdigest()
-                    section_entropy = self.H(rawContent)
-                    object_type = pdf_object.GetType()
+            if pdf_object is None:
+                done = True
 
-                    #Access data associated with this PDF object
-                    if pdf_object.ContainsStream():
-                        object_stream = True
-                        try:
-                            #decompress stream using codec
-                            streamContent = pdf_object.Stream() 
-                        except Exception as e:
-                            streamContent = "decompress failed."
+            elif pdf_object.type in [pdfparser.PDF_ELEMENT_INDIRECT_OBJECT]:
+                #Get general information for this PDF object
+                rawContent = pdfparser.FormatOutput(pdf_object.content, True)
+                section_md5_digest = hashlib.md5(rawContent).hexdigest()
+                section_entropy = self.H(rawContent)
+                object_type = pdf_object.GetType()
 
-                        if "decompress failed." in streamContent[:50]:
-                            #Provide raw stream data
-                            streamContent = pdf_object.Stream('')
+                #Access data associated with this PDF object
+                if pdf_object.ContainsStream():
+                    object_stream = True
+                    try:
+                        #decompress stream using codec
+                        streamContent = pdf_object.Stream() 
+                    except Exception as e:
+                        streamContent = "decompress failed."
 
-                        #Stream returns list of object tags (not actual stream data)
-                        if type(streamContent) == list:
-                            streamContent = pdfparser.FormatOutput(pdf_object.content, True)
-                            #Inspect pdf_object.content and extract raw stream
-                            stream_start = streamContent.find('stream') + len('stream')
-                            stream_end = streamContent.rfind('endstream')
-                            if stream_start >= 0 and stream_end > 0:
-                                streamContent = streamContent[stream_start:stream_end]
+                    if "decompress failed." in streamContent[:50]:
+                        #Provide raw stream data
+                        streamContent = pdf_object.Stream('')
 
-                        stream_md5_digest = hashlib.md5(streamContent).hexdigest()
-                    else:
-                        object_stream = False
-                        stream_md5_digest = ''
+                    #Stream returns list of object tags (not actual stream data)
+                    if type(streamContent) == list:
+                        streamContent = pdfparser.FormatOutput(pdf_object.content, True)
+                        #Inspect pdf_object.content and extract raw stream
+                        stream_start = streamContent.find('stream') + len('stream')
+                        stream_end = streamContent.rfind('endstream')
+                        if stream_start >= 0 and stream_end > 0:
+                            streamContent = streamContent[stream_start:stream_end]
+
+                    stream_md5_digest = hashlib.md5(streamContent).hexdigest()
+                else:
+                    object_stream = False
+                    stream_md5_digest = ''
 
                     #Collect references between this object and others
-                    object_references = []
-                    for reference in pdf_object.GetReferences():
-                        object_references.append(reference[0])
-                    object_references = ','.join(object_references)
+                object_references = [reference[0] for reference in pdf_object.GetReferences()]
+                #Get results from the object searching
+                object_content = []
+                if found_objects.get('js') and str(
+                    pdf_object.id
+                ) in found_objects.get('js'):
+                    object_content.append('JavaScript')
+                if found_objects.get('file') and str(
+                    pdf_object.id
+                ) in found_objects.get('file'):
+                    object_content.append('EmbeddedFile')
 
-                    #Get results from the object searching
-                    object_content = []
-                    if found_objects.get('js'):
-                        if str(pdf_object.id) in found_objects.get('js'):
-                            object_content.append('JavaScript')
-                    if found_objects.get('file'):
-                        if str(pdf_object.id) in found_objects.get('file'):
-                            object_content.append('EmbeddedFile')
-
-                    result = {
-                            "obj_id":           pdf_object.id,
-                            "obj_version":      pdf_object.version,
-                            "size":             len(rawContent),
-                            "type":             object_type,
-                            "entropy":          section_entropy,
-                            "content":          ','.join(object_content),
-                            "x_refs":           object_references,
-                            "stream":           object_stream,
-                            "stream_md5":       stream_md5_digest,
-                    }
-                    self._add_result('pdf_parser', section_md5_digest, result)
-            else:
-                done = True
+                object_references = ','.join(object_references)
+                result = {
+                        "obj_id":           pdf_object.id,
+                        "obj_version":      pdf_object.version,
+                        "size":             len(rawContent),
+                        "type":             object_type,
+                        "entropy":          section_entropy,
+                        "content":          ','.join(object_content),
+                        "x_refs":           object_references,
+                        "stream":           object_stream,
+                        "stream_md5":       stream_md5_digest,
+                }
+                self._add_result('pdf_parser', section_md5_digest, result)
 
     def run(self, obj, config):
         """
@@ -225,10 +218,10 @@ class PDFInfoService(Service):
         """
         data = obj.filedata.read()
 
-        self._info('Sample PDF Version: {}'.format(self._get_pdf_version(data[:1024])))
+        self._info(f'Sample PDF Version: {self._get_pdf_version(data[:1024])}')
         try:
-            self._info('PDF Parser Version: {}'.format(pdfparser.__version__))
-            self._info('PDFid Version: {}'.format(pdfid.__version__))
+            self._info(f'PDF Parser Version: {pdfparser.__version__}')
+            self._info(f'PDFid Version: {pdfid.__version__}')
         except AttributeError:
             pass
 

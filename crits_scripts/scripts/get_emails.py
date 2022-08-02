@@ -32,10 +32,7 @@ class CRITsScript(CRITsBaseScript):
         (opts, args) = parser.parse_args(argv)
 
         emails = mongo_connector(settings.COL_EMAIL)
-        if opts.filter:
-            query = ast.literal_eval(opts.filter)
-        else:
-            query = {}
+        query = ast.literal_eval(opts.filter) if opts.filter else {}
         if opts.yaml:
             meta_format = "yaml"
         elif opts.json:
@@ -45,21 +42,19 @@ class CRITsScript(CRITsBaseScript):
             return
         emails = emails.find(query, {})
 
-        if opts.out:
-            path = opts.out
-        else:
-            path = os.getcwd()
-
+        path = opts.out or os.getcwd()
         for email in emails:
             email_id = str(email['_id'])
-            data = format_object("Email", email_id, "json",
-                                 remove_source=True,
-                                 remove_rels=False,  # should this be False?
-                                 remove_schema_version=True,
-                                 remove_campaign=True
-                                )
-            if data:
+            if data := format_object(
+                "Email",
+                email_id,
+                "json",
+                remove_source=True,
+                remove_rels=False,  # should this be False?
+                remove_schema_version=True,
+                remove_campaign=True,
+            ):
+                pathname = os.path.join(path, f"{email_id}.{meta_format}")
                 pathname = os.path.join(path, email_id + "." + meta_format)
-                print "[+] Writing %s" % pathname
                 with open(pathname, "wb") as f:
                     f.write(data)

@@ -67,8 +67,7 @@ def config_cleaner(raw_dict):
     return clean_dict
 
 def ver_80(conf):
-    conf_dict = {}
-    conf_dict['Domain'] = decrypt_rc4('UniQue OussamiO', conf[1])
+    conf_dict = {'Domain': decrypt_rc4('UniQue OussamiO', conf[1])}
     conf_dict['Campaign'] = conf[2]
     conf_dict['Enable Startup'] = conf[3]
     conf_dict['StartupName'] = conf[4]
@@ -97,8 +96,7 @@ def ver_80(conf):
     return conf_dict
     
 def ver_801(conf):
-    conf_dict = {}
-    conf_dict['Domain'] = decrypt_rc4('UniQue OussamiO', conf[1])
+    conf_dict = {'Domain': decrypt_rc4('UniQue OussamiO', conf[1])}
     conf_dict['Campaign'] = conf[2]
     conf_dict['Enable Startup'] = conf[3]
     conf_dict['StartupName'] = conf[4]
@@ -132,6 +130,5 @@ def ver_801(conf):
     return conf_dict
 
 def config(data):
-    config_dict = ver_detect(data)
-    if config_dict:
+    if config_dict := ver_detect(data):
         return config_dict

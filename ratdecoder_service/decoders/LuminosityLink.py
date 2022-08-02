@@ -9,12 +9,12 @@ def config(raw_data):
         conf_string = re.findall(re_pattern, raw_data)[0]
         decoded = decrypt_string('Specify a Password', conf_string)
         config_dict = parse_config(decoded.split('|'))
-        
+
         if config_dict["BackUp Domain"] == 'Disabled':
             return [config_dict, [config_dict["Domain"]]]
         else:
             return config_dict
-            
+
     except Exception as e:
         return False
         
@@ -27,19 +27,18 @@ def decrypt_string(key_string, coded):
         aes_key = key_hash[:30]+key_hash+'00'
         #Crypto
         cipher = AES.new(aes_key.decode('hex'))
-        value = cipher.decrypt(b64decode(coded))
-        return value
+        return cipher.decrypt(b64decode(coded))
     except:
         return False
     
 #Turn the strings in to a python config_dict
 def parse_config(string_list):
-    config_dict = {}
-    config_dict["Domain"] = string_list[0]
-    config_dict["Port"] = string_list[1]
-    config_dict["BackUp Domain"] = string_list[2]
-    config_dict["Install Name"] = string_list[3]
-    config_dict["Startup Name"] = string_list[4]
-    config_dict["Campaign ID"] = string_list[5]
-    return config_dict
+    return {
+        "Domain": string_list[0],
+        "Port": string_list[1],
+        "BackUp Domain": string_list[2],
+        "Install Name": string_list[3],
+        "Startup Name": string_list[4],
+        "Campaign ID": string_list[5],
+    }
 

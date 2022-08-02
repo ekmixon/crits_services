@@ -21,11 +21,11 @@ class CRITsScript(CRITsBaseScript):
 
         samples = Sample.objects(bucket_list=opts.bucket)
         if opts.bucket and opts.outfile:
-            filename = "%s.tar.bz2" % opts.outfile
+            filename = f"{opts.outfile}.tar.bz2"
             try:
                 tar = tarfile.open(filename, "w:bz2")
             except Exception as e:
-                print ("Error when attempting to open %s for writing: %s" % (filename, e))
+                print(f"Error when attempting to open {filename} for writing: {e}")
                 sys.exit(1)
         count = len(samples)
         if count <= 0:
@@ -35,18 +35,14 @@ class CRITsScript(CRITsBaseScript):
             m = sample.md5
             f = sample.filename
             s = sample.filedata.read()
-            info = tarfile.TarInfo(name="%s" % f)
+            info = tarfile.TarInfo(name=f"{f}")
             info.mtime = time.time()
-            if s is not None:
-                info.size = len(s)
-            else:
-                info.size = 0
+            info.size = len(s) if s is not None else 0
             try:
                 tar.addfile(info, BytesIO(s))
             except Exception as e:
-                print ("Error attempting to add %s to the tarfile: %s" % (f, e))
-                pass
-        tar.close() 
-        print ("Generated %s containing %s files." % (filename, count))
+                print(f"Error attempting to add {f} to the tarfile: {e}")
+        tar.close()
+        print(f"Generated {filename} containing {count} files.")
             
             

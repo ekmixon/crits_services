@@ -15,7 +15,7 @@ class MachOInfoService(Service):
 
     @staticmethod
     def valid_for(obj):
-        if obj.filedata.grid_id == None:
+        if obj.filedata.grid_id is None:
             raise ServiceConfigError("Missing filedata.")
 
         data = obj.filedata.read()
@@ -25,12 +25,14 @@ class MachOInfoService(Service):
         # Reset the read pointer.
         obj.filedata.seek(0)
 
-        if not struct.unpack('@I', data[:4])[0] in [ MachOEntity.FAT_MAGIC,
-                                                     MachOEntity.FAT_CIGAM,
-                                                     MachOEntity.MH_MAGIC,
-                                                     MachOEntity.MH_CIGAM,
-                                                     MachOEntity.MH_MAGIC_64,
-                                                     MachOEntity.MH_CIGAM_64 ]:
+        if struct.unpack('@I', data[:4])[0] not in [
+            MachOEntity.FAT_MAGIC,
+            MachOEntity.FAT_CIGAM,
+            MachOEntity.MH_MAGIC,
+            MachOEntity.MH_CIGAM,
+            MachOEntity.MH_MAGIC_64,
+            MachOEntity.MH_CIGAM_64,
+        ]:
             raise ServiceConfigError("Bad magic.")
 
     def run(self, obj, config):

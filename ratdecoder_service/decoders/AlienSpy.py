@@ -152,14 +152,15 @@ def decrypt_RC6(key, encrypted, P, Q, rounds):
 
 def decrypt_XOR(keys, data):
     for key in keys:
-        res = ""
-        for i in xrange(len(data)):
-            res += chr(ord(data[i]) ^ ord(key[i%len(key)]))
+        res = "".join(
+            chr(ord(data[i]) ^ ord(key[i % len(key)]))
+            for i in xrange(len(data))
+        )
+
         if "SERVER" in res:
             return res
 
 def xor_config(data):
-    config_dict = {}
     xor_keys = ["0x999sisosouuqjqhyysuhahyujssddqsad23rhggdsfsdfs",
                 "VY999sisosouuqjqhyysuhahyujssddqsad22rhggdsfsdfs",
                 "ABJSIOODKKDIOSKKJDJUIOIKASJIOOQKSJIUDIKDKIAS",
@@ -174,10 +175,13 @@ def xor_config(data):
                 "XXXXXXXkevthehermitisacompletegaywhatfuckwithhismotherXDXDXD",
                 ]
     raw_config = decrypt_XOR(xor_keys, data)
-    for line in raw_config.split('\n'):
-        if line.startswith('<entry key'):
-            config_dict[re.findall('key="(.*?)"', line)[0]] = re.findall('>(.*?)</entry', line)[0]
-    return config_dict
+    return {
+        re.findall('key="(.*?)"', line)[0]: re.findall('>(.*?)</entry', line)[
+            0
+        ]
+        for line in raw_config.split('\n')
+        if line.startswith('<entry key')
+    }
 
 def run(file_name):
     config_dict = False
@@ -243,8 +247,11 @@ def run(file_name):
     if 'config/config.ini' in jar.namelist():
         temp_config = xor_config(jar.read('config/config.ini'))
         coded_jar = jar.read(temp_config['SERVER'][1:])
-        enckey = ['kevthehermitGAYGAYGAYD{0}'.format(temp_config["PASSWORD"]),
-                  'kevthehermitGADGAYGAYD{}'.format(temp_config["PASSWORD"])]
+        enckey = [
+            'kevthehermitGAYGAYGAYD{0}'.format(temp_config["PASSWORD"]),
+            f'kevthehermitGADGAYGAYD{temp_config["PASSWORD"]}',
+        ]
+
         config_dict = version_c(enckey, coded_jar)
 
     # Version I
@@ -258,8 +265,11 @@ def run(file_name):
     if 'components/linux.plsk' in jar.namelist():
         temp_config = xor_config(jar.read('components/linux.plsk'))
         coded_jar = jar.read(temp_config['SERVER'][1:])
-        enckey = ['kevthehermitGADGAYGAYD{0}'.format(temp_config["PASSWORD"]),
-                  'LDLDKFJVUI39OWIS9WOQ92{}'.format(temp_config["PASSWORD"])]
+        enckey = [
+            'kevthehermitGADGAYGAYD{0}'.format(temp_config["PASSWORD"]),
+            f'LDLDKFJVUI39OWIS9WOQ92{temp_config["PASSWORD"]}',
+        ]
+
         config_dict = version_c(enckey, coded_jar)
         if config_dict is None:
             config_dict = version_d(enckey, coded_jar)

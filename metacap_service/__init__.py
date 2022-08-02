@@ -35,9 +35,8 @@ class MetaCapService(Service):
     def parse_config(config):
         # Make sure basedir exists.
         errors = []
-        basedir = config.get('basedir', '')
-        if basedir:
-            shop_path = "%s/shop" % basedir
+        if basedir := config.get('basedir', ''):
+            shop_path = f"{basedir}/shop"
             if not os.path.exists(basedir):
                 errors.append("Base directory does not exist.")
             elif not os.path.exists(shop_path):
@@ -55,11 +54,8 @@ class MetaCapService(Service):
 
     @staticmethod
     def get_config(existing_config):
-        config = {}
         fields = forms.MetaCapConfigForm().fields
-        for name, field in fields.iteritems():
-            config[name] = field.initial
-
+        config = {name: field.initial for name, field in fields.iteritems()}
         # If there is a config in the database, use values from that.
         if existing_config:
             for key, value in existing_config.iteritems():
@@ -68,28 +64,28 @@ class MetaCapService(Service):
 
     @staticmethod
     def get_config_details(config):
-        display_config = {}
-
         # Rename keys so they render nice.
         fields = forms.MetaCapConfigForm().fields
-        for name, field in fields.iteritems():
-            display_config[field.label] = config[name]
-
-        return display_config
+        return {field.label: config[name] for name, field in fields.iteritems()}
 
     @classmethod
-    def generate_config_form(self, config):
-        html = render_to_string('services_config_form.html',
-                                {'name': self.name,
-                                 'form': forms.MetaCapConfigForm(initial=config),
-                                 'config_error': None})
+    def generate_config_form(cls, config):
+        html = render_to_string(
+            'services_config_form.html',
+            {
+                'name': cls.name,
+                'form': forms.MetaCapConfigForm(initial=config),
+                'config_error': None,
+            },
+        )
+
         form = forms.MetaCapConfigForm
         return form, html
 
     def run(self, obj, config):
         logger.debug("Setting up shop...")
         base_dir = config['basedir']
-        shop_path = "%s/shop" % base_dir
+        shop_path = f"{base_dir}/shop"
         if not os.path.exists(base_dir):
             self._error("ChopShop path does not exist")
             return
@@ -121,7 +117,7 @@ class MetaCapService(Service):
             try:
                 chopui.bind(choplib)
                 chopui.start()
-                while chopui.jsonclass == None:
+                while chopui.jsonclass is None:
                     time.sleep(.1)
                 chopui.jsonclass.set_service(self)
                 choplib.start()
@@ -159,23 +155,20 @@ class jsonhandler:
         tdict = {"Type": "PCAP Summary"}
         self.service._add_result(flow_name, summary, tdict)
 
-        # parse the flows
-        dcount = 1
-        for flow in data:
+        for dcount, flow in enumerate(data, start=1):
             # each flow has a 'data' and 'type' key
             summary = flow['data']
-            flow_name = "Flow %s" % dcount
+            flow_name = f"Flow {dcount}"
             tdict = {"Type": "Flow Summary"}
             self.service._add_result(flow_name, summary, tdict)
-            dcount += 1
 
     def handle_ctrl(self, message):
         logger.info(message)
         data = message['data']
         if data['msg'] == 'addmod':
-            result = "Add module: %s" % data['name']
+            result = f"Add module: {data['name']}"
         elif data['msg'] == 'finished':
-            result = "Finished: %s" % data['status']
+            result = f"Finished: {data['status']}"
         else:
             result = data
         self.service._info(result)

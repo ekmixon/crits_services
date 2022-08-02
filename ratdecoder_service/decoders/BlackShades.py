@@ -5,9 +5,7 @@ PRNG_SEED = 0
 def is_valid_config(config):
     if config[:3] != "\x0c\x0c\x0c":
         return False
-    if config.count("\x0C\x0C\x0C") < 15:
-        return False
-    return True
+    return config.count("\x0C\x0C\x0C") >= 15
 
 def get_next_rng_value():
     global PRNG_SEED
@@ -19,10 +17,7 @@ def decrypt_configuration(hex):
     ascii = hex.decode('hex')
     tail = ascii[0x20:]
 
-    pre_check = []
-    for x in xrange(3):
-        pre_check.append(ord(tail[x]) ^ 0x0c)
-
+    pre_check = [ord(tail[x]) ^ 0x0c for x in xrange(3)]
     for x in xrange(0xffffff):
         PRNG_SEED = x
         if get_next_rng_value() != pre_check[0] or get_next_rng_value() != pre_check[1] or get_next_rng_value() != pre_check[2]:
@@ -40,31 +35,29 @@ def config_extract(raw_data):
         return s
 
 def config_parser(config):
-    config_dict = {}
-    config_dict['Domain'] = config[1]
-    config_dict['Client Control Port'] = config[2]
-    config_dict['Client Transfer Port'] = config[3]
-    config_dict['Campaign ID'] = config[4]
-    config_dict['File Name'] = config[5]
-    config_dict['Install Path'] = config[6]
-    config_dict['Registry Key'] = config[7]
-    config_dict['ActiveX Key'] = config[8]
-    config_dict['Install Flag'] = config[9]
-    config_dict['Hide File'] = config[10]
-    config_dict['Melt File'] = config[11]
-    config_dict['Delay'] = config[12]
-    config_dict['USB Spread'] = config[13]
-    config_dict['Mutex'] = config[14]
-    config_dict['Log File'] = config[15]
-    config_dict['Folder Name'] = config[16]
-    config_dict['Smart DNS'] = config[17]
-    config_dict['Protect Process'] = config[18]
-    return config_dict
+    return {
+        'Domain': config[1],
+        'Client Control Port': config[2],
+        'Client Transfer Port': config[3],
+        'Campaign ID': config[4],
+        'File Name': config[5],
+        'Install Path': config[6],
+        'Registry Key': config[7],
+        'ActiveX Key': config[8],
+        'Install Flag': config[9],
+        'Hide File': config[10],
+        'Melt File': config[11],
+        'Delay': config[12],
+        'USB Spread': config[13],
+        'Mutex': config[14],
+        'Log File': config[15],
+        'Folder Name': config[16],
+        'Smart DNS': config[17],
+        'Protect Process': config[18],
+    }
         
 def config(data):
-    raw_config = config_extract(data)
-    if raw_config:
+    if raw_config := config_extract(data):
         config = decrypt_configuration(raw_config)
         if config and len(config) > 15:
-            sorted_config = config_parser(config)
-            return sorted_config
+            return config_parser(config)
