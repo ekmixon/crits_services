@@ -25,7 +25,7 @@ class impfuzzyService(Service):
 
     @staticmethod
     def valid_for(obj):
-        if obj.filedata.grid_id == None:
+        if obj.filedata.grid_id is None:
             raise ServiceConfigError("Missing filedata.")
         # Only run on PE files
         if not obj.is_pe():
@@ -38,10 +38,8 @@ class impfuzzyService(Service):
             # The values are submitted as a list for some reason.
             data = {'threshold': config['threshold'][0]}
         else:
-            data = {}
             fields = forms.impfuzzyRunForm().fields
-            for name, field in fields.iteritems():
-                data[name] = field.initial
+            data = {name: field.initial for name, field in fields.iteritems()}
         return forms.impfuzzyRunForm(data)
 
     @staticmethod
@@ -50,12 +48,16 @@ class impfuzzyService(Service):
         return {}
 
     @classmethod
-    def generate_runtime_form(self, analyst, config, crits_type, identifier):
-        return render_to_string('services_run_form.html',
-                                {'name': self.name,
-                                 'form': forms.impfuzzyRunForm(),
-                                 'crits_type': crits_type,
-                                 'identifier': identifier})
+    def generate_runtime_form(cls, analyst, config, crits_type, identifier):
+        return render_to_string(
+            'services_run_form.html',
+            {
+                'name': cls.name,
+                'form': forms.impfuzzyRunForm(),
+                'crits_type': crits_type,
+                'identifier': identifier,
+            },
+        )
 
     def run(self, obj, config):
         threshold = config.get("threshold", 50)
@@ -66,7 +68,8 @@ class impfuzzyService(Service):
             pass
         target_md5 = obj.md5
         if not target_impfuzzy:
-            logger.error = "impfuzzy: Could not generate impfuzzy value for sample: %s" % str(obj.id)
+            logger.error = f"impfuzzy: Could not generate impfuzzy value for sample: {str(obj.id)}"
+
             self._error("Could not generate impfuzzy value for sample")
             return
         # setup the sample space to compare against
@@ -78,16 +81,17 @@ class impfuzzyService(Service):
         else:
             self._info("impfuzzy attribute already present, not overwriting")
         self._add_result('impfuzzy_hash', target_impfuzzy,{'impfuzzy': target_impfuzzy})
-        target_mimetype = obj.mimetype
         query_filter = {}
-        if target_mimetype:
+        if target_mimetype := obj.mimetype:
             query_filter['mimetype'] = target_mimetype
         # then use only samples with a multiple of chunksize
         chunk_size = int(target_impfuzzy.split(":")[0])
-        query_filter["$or"] = []
-        query_filter["$or"].append({"impfuzzy": {"$regex": "^%d:" % chunk_size * 2}})
-        query_filter["$or"].append({"impfuzzy": {"$regex": "^%d:" % chunk_size}})
-        query_filter["$or"].append({"impfuzzy": {"$regex": "^%d:" % (chunk_size // 2)}})
+        query_filter["$or"] = [
+            {"impfuzzy": {"$regex": "^%d:" % chunk_size * 2}},
+            {"impfuzzy": {"$regex": "^%d:" % chunk_size}},
+            {"impfuzzy": {"$regex": "^%d:" % (chunk_size // 2)}},
+        ]
+
         result_filter = {'md5': 1, 'impfuzzy': 1, 'description':1}
         candidate_space = Sample.objects(__raw__=query_filter).only(*result_filter)
         #    self.info("candidate: %s" % repr(candidate_space))

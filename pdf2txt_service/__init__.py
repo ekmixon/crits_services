@@ -55,7 +55,7 @@ class pdf2txtService(Service):
         if not os.access(pdf2txt_path, os.X_OK):
             raise ServiceConfigError("pdftotext is not executable.")
 
-        if not 'pdftotext' in pdf2txt_path.lower():
+        if 'pdftotext' not in pdf2txt_path.lower():
             raise ServiceConfigError("Executable does not appear to be pdftotext.")
 
         if not os.path.isfile(antiword_path):
@@ -64,17 +64,13 @@ class pdf2txtService(Service):
         if not os.access(antiword_path, os.X_OK):
             raise ServiceConfigError("antiword is not executable.")
 
-        if not 'antiword' in antiword_path.lower():
+        if 'antiword' not in antiword_path.lower():
             raise ServiceConfigError("Executable does not appear to be antiword.")
 
     @staticmethod
     def get_config(existing_config):
-        # Generate default config from form and initial values.
-        config = {}
         fields = forms.pdf2txtConfigForm().fields
-        for name, field in fields.iteritems():
-            config[name] = field.initial
-
+        config = {name: field.initial for name, field in fields.iteritems()}
         # If there is a config in the database, use values from that.
         if existing_config:
             for key, value in existing_config.iteritems():
@@ -87,11 +83,16 @@ class pdf2txtService(Service):
                 'antiword_path': config['antiword_path']}
 
     @classmethod
-    def generate_config_form(self, config):
-        html = render_to_string('services_config_form.html',
-                                {'name': self.name,
-                                 'form': forms.pdf2txtConfigForm(initial=config),
-                                 'config_error': None})
+    def generate_config_form(cls, config):
+        html = render_to_string(
+            'services_config_form.html',
+            {
+                'name': cls.name,
+                'form': forms.pdf2txtConfigForm(initial=config),
+                'config_error': None,
+            },
+        )
+
         form = forms.pdf2txtConfigForm
         return form, html
 
@@ -164,7 +165,10 @@ class pdf2txtService(Service):
                         method=self.name,
                         copy_rels=True)
             raw_obj = class_from_id("RawData", res["_id"])
-            self._warning("obj.id: %s, raw_id:%s, suc: %s" % (str(obj.id), str(raw_obj.id), repr(res['success']) ) )
+            self._warning(
+                f"obj.id: {str(obj.id)}, raw_id:{str(raw_obj.id)}, suc: {repr(res['success'])}"
+            )
+
             # update relationship if a related top-level object is supplied
             rel_type = RelationshipTypes.RELATED_TO
             if obj.id != raw_obj.id: #don't form relationship to itself
@@ -174,6 +178,6 @@ class pdf2txtService(Service):
                                         analyst=self.current_task.user)
                 obj.save(username=self.current_task.user.username)
                 raw_obj.save(username=self.current_task.user.username)
-                self._warning("resy: %s" % (str(resy)) )
+                self._warning(f"resy: {str(resy)}")
                 self._add_result("rawdata_added", raw_hash, {'md5': raw_hash})
         return

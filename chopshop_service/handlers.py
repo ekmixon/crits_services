@@ -28,7 +28,7 @@ def chopshop_carver(pcap_md5, options, analyst):
     if not sc:
         return {'success': False, 'message': 'Could not find ChopShop service.'}
 
-    shop_path = "%s/shop" % str(sc['basedir'])
+    shop_path = f"{str(sc['basedir'])}/shop"
     if not os.path.exists(shop_path):
         return {'success': False, 'message': "ChopShop shop path does not exist."}
 
@@ -52,7 +52,11 @@ def chopshop_carver(pcap_md5, options, analyst):
         return {'success': False, 'message': "No PCAP found."}
     pcap_data = pcap.filedata.read()
     if not pcap_data:
-        return {'success': False, 'message': "Could not get PCAP from GridFS: %s" %  pcap_md5}
+        return {
+            'success': False,
+            'message': f"Could not get PCAP from GridFS: {pcap_md5}",
+        }
+
 
     source = pcap['source'][0]['name'] # XXX: This kind of sucks...
 
@@ -73,7 +77,7 @@ def chopshop_carver(pcap_md5, options, analyst):
     if not modules:
         return {'success': False, 'message': "No modules specified."}
 
-    mod_string = ';'.join(mod for mod in modules)
+    mod_string = ';'.join(modules)
 
     from ChopLib import ChopLib
     from ChopUi import ChopUi
@@ -98,7 +102,7 @@ def chopshop_carver(pcap_md5, options, analyst):
     chopui.bind(choplib)
     chopui.start()
 
-    if chopui.jsonclass == None:
+    if chopui.jsonclass is None:
         os.unlink(temp_pcap.name)
         chopui.join()
         choplib.finish()
@@ -121,16 +125,27 @@ def chopshop_carver(pcap_md5, options, analyst):
 
     os.unlink(temp_pcap.name)
 
-    message = ''
+    message = ''.join(
+        "Saved HTTP body: <a href=\"%s\">%s</a><br />"
+        % (
+            reverse('crits-samples-views-detail', args=[md5_digest]),
+            md5_digest,
+        )
+        if user.has_access_to(SampleACL.WRITE)
+        and handle_file(
+            name,
+            blob,
+            source,
+            related_md5=pcap_md5,
+            user=user,
+            source_method='ChopShop Filecarver',
+            md5_digest=md5_digest,
+            related_type='PCAP',
+        )
+        else f"Failed to save file {md5_digest}."
+        for md5_digest, (name, blob) in chopui.jsonclass.http_files.items()
+    )
 
-    # Grab any carved HTTP bodies.
-    for (md5_digest, (name, blob)) in chopui.jsonclass.http_files.items():
-        if user.has_access_to(SampleACL.WRITE) and handle_file(name, blob, source, related_md5=pcap_md5, user=user, source_method='ChopShop Filecarver', md5_digest=md5_digest, related_type='PCAP'):
-            # Specifically not using name here as I don't want to deal
-            # with sanitizing it
-            message += "Saved HTTP body: <a href=\"%s\">%s</a><br />" % (reverse('crits-samples-views-detail', args=[md5_digest]), md5_digest)
-        else:
-            message += "Failed to save file %s." % md5_digest
 
     # Grab any carved SMTP returns.
     for blob in chopui.jsonclass.smtp_returns.values():
@@ -155,7 +170,7 @@ def chopshop_carver(pcap_md5, options, analyst):
         if md5_digest:
             message += "Saved raw %s: <a href=\"%s\">%s</a><br />" % (id_, reverse('crits-samples-views-detail', args=[md5_digest]), md5_digest)
         else:
-            message += "Failed to save raw %s." % md5_digest
+            message += f"Failed to save raw {md5_digest}."
 
     # It's possible to have no files here if nothing matched.
     # Still return True as there were no problems.

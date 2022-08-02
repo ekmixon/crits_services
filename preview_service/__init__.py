@@ -46,7 +46,7 @@ class previewService(Service):
         if not os.access(pdftoppm_path, os.X_OK):
             raise ServiceConfigError("pdftoppm is not executable.")
 
-        if not 'pdftoppm' in pdftoppm_path.lower():
+        if 'pdftoppm' not in pdftoppm_path.lower():
             raise ServiceConfigError("Executable does not appear to be pdftoppm.")
 
         if not os.path.isfile(antiword_path):
@@ -55,17 +55,13 @@ class previewService(Service):
         if not os.access(antiword_path, os.X_OK):
             raise ServiceConfigError("antiword is not executable.")
 
-        if not 'antiword' in antiword_path.lower():
+        if 'antiword' not in antiword_path.lower():
             raise ServiceConfigError("Executable does not appear to be antiword.")
 
     @staticmethod
     def get_config(existing_config):
-        # Generate default config from form and initial values.
-        config = {}
         fields = forms.previewConfigForm().fields
-        for name, field in fields.iteritems():
-            config[name] = field.initial
-
+        config = {name: field.initial for name, field in fields.iteritems()}
         # If there is a config in the database, use values from that.
         if existing_config:
             for key, value in existing_config.iteritems():
@@ -78,11 +74,16 @@ class previewService(Service):
                 'antiword_path': config['antiword_path']}
 
     @classmethod
-    def generate_config_form(self, config):
-        html = render_to_string('services_config_form.html',
-                                {'name': self.name,
-                                 'form': forms.previewConfigForm(initial=config),
-                                 'config_error': None})
+    def generate_config_form(cls, config):
+        html = render_to_string(
+            'services_config_form.html',
+            {
+                'name': cls.name,
+                'form': forms.previewConfigForm(initial=config),
+                'config_error': None,
+            },
+        )
+
         form = forms.previewConfigForm
         return form, html
 
@@ -105,10 +106,8 @@ class previewService(Service):
                 obj.filedata.seek(0)
                 if not im.format:
                     raise ServiceConfigError("Not supported image format")
-                    return False
             except IOError as e:
-                raise ServiceConfigError("Not supported image format or a PDF. %s" % str(e))
-                return False
+                raise ServiceConfigError(f"Not supported image format or a PDF. {str(e)}")
         return True
 
     def run(self, obj, config):
@@ -144,9 +143,9 @@ class previewService(Service):
                                                          oid=obj.id, 
                                                          otype="Sample")
                 if res.get('message') and res.get('success') == True:
-                    self._warning("res-message: %s id:%s" % (res.get('message'), res.get('id') ) ) 
+                    self._warning(f"res-message: {res.get('message')} id:{res.get('id')}")
             except IOError as e:
-                self._error("Exception while reading: %s" % str(e))
+                self._error(f"Exception while reading: {str(e)}")
                 return False
             self._add_result('preview', res.get('id'), {'Message': res.get('message')})
             return True
@@ -168,7 +167,7 @@ class previewService(Service):
                     pdf_file, serr = proc1.communicate()
                     #self._warning("antiOut:%s" % pdf_file)
                     if serr:
-                        self._warning("Antiword warning: %s" % serr)
+                        self._warning(f"Antiword warning: {serr}")
                     if proc1.returncode:
                         msg = ("Antiword could not process the file.")
                         self._error(msg)
@@ -196,20 +195,18 @@ class previewService(Service):
                                                          oid=obj.id,
                                                          otype="Sample")
                             if res.get('message') and res.get('success') == True:
-                                self._warning("res-message: %s id:%s" % (res.get('message'), res.get('id') ) )
+                                self._warning(f"res-message: {res.get('message')} id:{res.get('id')}")
                                 self._add_result('preview', res.get('id'), {'Message': res.get('message')})
-                            self._info("id:%s, file: %s" % (res.get('id'), os.path.join(working_dir,filen)))
+                            self._info(f"id:{res.get('id')}, file: {os.path.join(working_dir, filen)}")
                     # Note that we are redirecting STDERR to STDOUT, so we can ignore
                     # the second element of the tuple returned by communicate().
                     #self._warning("Out:%s" % output)
                     if serr:
-                        self._warning("Pdftoppm warning: %s" % serr)
-                    if proc.returncode:
-                        msg = ("Pdftoppm could not process the file.")
-                        self._error(msg)
-                        return False
-                    else:
+                        self._warning(f"Pdftoppm warning: {serr}")
+                    if not proc.returncode:
                         return True
+                    self._error("Pdftoppm could not process the file.")
+                    return False
         else:
             obj.filedata.seek(0)
             self._debug("preview PDF started\n")
@@ -242,13 +239,13 @@ class previewService(Service):
                                                          oid=obj.id, 
                                                          otype="Sample")
                         if res.get('message') and res.get('success') == True:
-                            self._warning("res-message: %s id:%s" % (res.get('message'), res.get('id') ) )
+                            self._warning(f"res-message: {res.get('message')} id:{res.get('id')}")
                             self._add_result('preview', res.get('id'), {'Message': res.get('message')})
-                        self._info("id:%s, file: %s" % (res.get('id'), os.path.join(working_dir,filen)))
+                        self._info(f"id:{res.get('id')}, file: {os.path.join(working_dir, filen)}")
                 # Note that we are redirecting STDERR to STDOUT, so we can ignore
                 # the second element of the tuple returned by communicate().
                 if serr:
-                    self._warning("Pdftoppm warning: %s" % serr)
+                    self._warning(f"Pdftoppm warning: {serr}")
                 if proc.returncode:
                     msg = ("pdftoppm could not process the file.")
                     self._warning(msg)

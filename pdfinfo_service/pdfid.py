@@ -74,10 +74,7 @@ except:
 
 #Convert 2 Bytes If Python 3
 def C2BIP3(string):
-    if sys.version_info[0] > 2:
-        return bytes([ord(x) for x in string])
-    else:
-        return string
+    return bytes(ord(x) for x in string) if sys.version_info[0] > 2 else string
 
 class cBinaryFile:
     def __init__(self, file):
@@ -91,7 +88,7 @@ class cBinaryFile:
                 else:
                     self.infile = urllib23.urlopen(file)
             except urllib23.HTTPError:
-                print('Error accessing URL %s' % file)
+                print(f'Error accessing URL {file}')
                 print(sys.exc_info()[1])
                 sys.exit()
         elif file.lower().endswith('.zip'):
@@ -99,14 +96,14 @@ class cBinaryFile:
                 self.zipfile = zipfile.ZipFile(file, 'r')
                 self.infile = self.zipfile.open(self.zipfile.infolist()[0], 'r', C2BIP3('infected'))
             except:
-                print('Error opening file %s' % file)
+                print(f'Error opening file {file}')
                 print(sys.exc_info()[1])
                 sys.exit()
         else:
             try:
                 self.infile = io.BytesIO(file)
             except:
-                print('Error opening file %s' % file)
+                print(f'Error opening file {file}')
                 print(sys.exc_info()[1])
                 sys.exit()
         self.ungetted = []
@@ -122,8 +119,8 @@ class cBinaryFile:
 
     def bytes(self, size):
         if size <= len(self.ungetted):
-            result = self.ungetted[0:size]
-            del self.ungetted[0:size]
+            result = self.ungetted[:size]
+            del self.ungetted[:size]
             return result
         inbytes = self.infile.read(size - len(self.ungetted))
         if inbytes == '':
@@ -131,7 +128,7 @@ class cBinaryFile:
         if type(inbytes) == type(''):
             result = self.ungetted + [ord(b) for b in inbytes]
         else:
-            result = self.ungetted + [b for b in inbytes]
+            result = self.ungetted + list(inbytes)
         self.ungetted = []
         return result
 
@@ -161,22 +158,17 @@ class cPDFDate:
             if len(self.digits1) < 14:
                 if char >= '0' and char <= '9':
                     self.digits1 += char
-                    return None
                 else:
                     self.state = 0
-                    return None
-            elif char == '+' or char == '-' or char == 'Z':
+                return None
+            elif char in ['+', '-', 'Z']:
                 self.state = 3
                 self.digits2 = ''
                 self.TZ = char
                 return None
-            elif char == '"':
+            elif char == '"' or char < '0' or char > '9':
                 self.state = 0
-                self.date = 'D:' + self.digits1
-                return self.date
-            elif char < '0' or char > '9':
-                self.state = 0
-                self.date = 'D:' + self.digits1
+                self.date = f'D:{self.digits1}'
                 return self.date
             else:
                 self.state = 0
@@ -185,23 +177,21 @@ class cPDFDate:
             if len(self.digits2) < 2:
                 if char >= '0' and char <= '9':
                     self.digits2 += char
-                    return None
                 else:
                     self.state = 0
-                    return None
+                return None
             elif len(self.digits2) == 2:
                 if char == "'":
                     self.digits2 += char
-                    return None
                 else:
                     self.state = 0
-                    return None
+                return None
             elif len(self.digits2) < 5:
                 if char >= '0' and char <= '9':
                     self.digits2 += char
                     if len(self.digits2) == 5:
                         self.state = 0
-                        self.date = 'D:' + self.digits1 + self.TZ + self.digits2
+                        self.date = f'D:{self.digits1}{self.TZ}{self.digits2}'
                         return self.date
                     else:
                         return None
@@ -211,15 +201,12 @@ class cPDFDate:
 
 def fEntropy(countByte, countTotal):
     x = float(countByte) / countTotal
-    if x > 0:
-        return - x * math.log(x, 2)
-    else:
-        return 0.0
+    return - x * math.log(x, 2) if x > 0 else 0.0
 
 class cEntropy:
     def __init__(self):
-        self.allBucket = [0 for i in range(0, 256)]
-        self.streamBucket = [0 for i in range(0, 256)]
+        self.allBucket = [0 for _ in range(256)]
+        self.streamBucket = [0 for _ in range(256)]
 
     def add(self, byte, insideStream):
         self.allBucket[byte] += 1
@@ -260,7 +247,7 @@ class cPDFEOF:
         elif self.token == '%%EO' and char == 'F':
             self.token += char
             return
-        elif self.token == '%%EOF' and (char == '\n' or char == '\r' or char == ' ' or char == '\t'):
+        elif self.token == '%%EOF' and char in ['\n', '\r', ' ', '\t']:
             self.cntEOFs += 1
             self.cntCharsAfterLastEOF = 0
             if char == '\n':
@@ -282,22 +269,18 @@ def FindPDFHeaderRelaxed(oBinaryFile):
         oBinaryFile.ungets(bytes)
         return ([], None)
     for endHeader in range(index + 4, index + 4 + 10):
-        if bytes[endHeader] == 10 or bytes[endHeader] == 13:
+        if bytes[endHeader] in [10, 13]:
             break
     oBinaryFile.ungets(bytes[endHeader:])
-    return (bytes[0:endHeader], ''.join([chr(byte) for byte in bytes[index:endHeader]]))
+    return bytes[:endHeader], ''.join(
+        [chr(byte) for byte in bytes[index:endHeader]]
+    )
 
 def Hexcode2String(char):
-    if type(char) == int:
-        return '#%02x' % char
-    else:
-        return char
+    return '#%02x' % char if type(char) == int else char
 
 def SwapCase(char):
-    if type(char) == int:
-        return ord(chr(char).swapcase())
-    else:
-        return char.swapcase()
+    return ord(chr(char).swapcase()) if type(char) == int else char.swapcase()
 
 def HexcodeName2String(hexcodeName):
     return ''.join(map(Hexcode2String, hexcodeName))
@@ -326,10 +309,18 @@ def UpdateWords(word, wordExact, slash, words, hexcode, allNames, lastName, insi
                         oEntropy.removeInsideStream(ord(char))
                 insideStream = False
         if fOut != None:
-            if slash == '/' and '/' + word in ('/JS', '/JavaScript', '/AA', '/OpenAction', '/JBIG2Decode', '/RichMedia', '/Launch'):
+            if slash == '/' and f'/{word}' in (
+                '/JS',
+                '/JavaScript',
+                '/AA',
+                '/OpenAction',
+                '/JBIG2Decode',
+                '/RichMedia',
+                '/Launch',
+            ):
                 wordExactSwapped = HexcodeName2String(SwapName(wordExact))
                 fOut.write(C2BIP3(wordExactSwapped))
-                print('/%s -> /%s' % (HexcodeName2String(wordExact), wordExactSwapped))
+                print(f'/{HexcodeName2String(wordExact)} -> /{wordExactSwapped}')
             else:
                 fOut.write(C2BIP3(HexcodeName2String(wordExact)))
     return ('', [], False, lastName, insideStream)

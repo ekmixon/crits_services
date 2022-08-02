@@ -73,12 +73,12 @@ class TestFile(object):
 
     def _check_triage(self):
         sample = Sample.objects(md5=self.test_md5).first()
-        results = False
-        if sample and sample.filedata:
-            if len(AnalysisResult.objects(object_id=str(sample.id))) > 0:
-                results = True
-        print "[?] sample analysis executed == %s" % results
-        return results
+        sample = Sample.objects(md5=self.test_md5).first()
+        return bool(
+            sample
+            and sample.filedata
+            and len(AnalysisResult.objects(object_id=str(sample.id))) > 0
+        )
 
     def _check_grid(self):
         sample = Sample.objects(md5=self.test_md5).first()

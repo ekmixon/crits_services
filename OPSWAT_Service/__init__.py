@@ -26,11 +26,8 @@ class OPSWATService(Service):
 
     @staticmethod
     def get_config(existing_config):
-        config = {}
         fields = forms.OPSWATConfigForm().fields
-        for name, field in fields.iteritems():
-            config[name] = field.initial
-
+        config = {name: field.initial for name, field in fields.iteritems()}
         # If there is a config in the database, use values from that.
         if existing_config:
             for key, value in existing_config.iteritems():
@@ -39,14 +36,9 @@ class OPSWATService(Service):
 
     @staticmethod
     def get_config_details(config):
-        display_config = {}
-
         # Rename keys so they render nice.
         fields = forms.OPSWATConfigForm().fields
-        for name, field in fields.iteritems():
-            display_config[field.label] = config[name]
-
-        return display_config
+        return {field.label: config[name] for name, field in fields.iteritems()}
 
     @staticmethod
     def parse_config(config):
@@ -54,17 +46,22 @@ class OPSWATService(Service):
             raise ServiceConfigError("URL required.")
 
     @classmethod
-    def generate_config_form(self, config):
-        html = render_to_string('services_config_form.html',
-                                {'name': self.name,
-                                 'form': forms.OPSWATConfigForm(initial=config),
-                                 'config_error': None})
+    def generate_config_form(cls, config):
+        html = render_to_string(
+            'services_config_form.html',
+            {
+                'name': cls.name,
+                'form': forms.OPSWATConfigForm(initial=config),
+                'config_error': None,
+            },
+        )
+
         form = forms.OPSWATConfigForm
         return form, html
 
     @staticmethod
     def valid_for(obj):
-        if obj.filedata.grid_id == None:
+        if obj.filedata.grid_id is None:
             raise ServiceConfigError("Missing filedata.")
 
     def run(self, obj, config):
@@ -72,7 +69,7 @@ class OPSWATService(Service):
         zipdata = create_zip([("samples", data)])
         url = config.get('url', '')
         if config.get('use_proxy'):
-            self._debug("OPSWAT: proxy handler set to: %s" % settings.HTTP_PROXY)
+            self._debug(f"OPSWAT: proxy handler set to: {settings.HTTP_PROXY}")
             proxy_handler = urllib2.ProxyHandler({'http': settings.HTTP_PROXY})
         else:
             self._debug("OPSWAT: proxy handler unset")

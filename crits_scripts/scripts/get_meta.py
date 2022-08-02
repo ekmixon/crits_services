@@ -30,19 +30,15 @@ class CRITsScript(CRITsBaseScript):
         return md5_list
 
     def make_meta(self, opts):
-        meta = {}
-        for opt in opts:
-            meta[opt] = 1
-        return meta
+        return {opt: 1 for opt in opts}
 
     def parse_office_meta(self, meta):
         results = {}
         item = re.compile("(.+): (.+)", re.DOTALL)
         meta_items = meta.split(',')
         for meta_item in meta_items:
-            match = item.match(meta_item)
-            if match:
-                results[match.group(1).lstrip().rstrip()] = match.group(2).lstrip().rstrip()
+            if match := item.match(meta_item):
+                results[match[1].lstrip().rstrip()] = match[2].lstrip().rstrip()
         return results
 
     def get_val_dot(self, value, element):
@@ -52,19 +48,23 @@ class CRITsScript(CRITsBaseScript):
             if end >= 0:
                 if value.has_key(element[:end]):
                     return self.get_val_dot(value[element[:end]], element[end+1:])
-            else:
-                if value.has_key(element):
-                    if isinstance(value[element], datetime.datetime):
-                        return value[element].strftime("%D")
-                    return value[element]
+            elif value.has_key(element):
+                return (
+                    value[element].strftime("%D")
+                    if isinstance(value[element], datetime.datetime)
+                    else value[element]
+                )
+
         elif len(value) > 0:
             return self.get_val_dot(value[0], element)
         return ""
 
     def print_csv(self, item_list, element_list):
-        temp = ""
-        for element in element_list:
-            temp += self.convert_ascii(self.get_val_dot(item_list, element)) + ","
+        temp = "".join(
+            f"{self.convert_ascii(self.get_val_dot(item_list, element))},"
+            for element in element_list
+        )
+
         return temp[:-1]
 
     def get_office_meta(self, filter):
@@ -132,11 +132,7 @@ class CRITsScript(CRITsBaseScript):
         parser.add_option("-o", "--office", action="store_true", dest="office",
                 default=False, help="perform office query")
         (opts, args) = parser.parse_args(argv)
-        if opts.filter:
-            filter = ast.literal_eval(opts.filter)
-        else:
-            filter = {}
-
+        filter = ast.literal_eval(opts.filter) if opts.filter else {}
         if opts.pdf_info:
             self.get_pdf_meta(filter)
         elif opts.yara:

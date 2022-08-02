@@ -29,24 +29,18 @@ class ChopShopService(Service):
 
     @staticmethod
     def parse_config(config):
-        # Make sure basedir exists.
-        basedir = config.get('basedir', '')
-        if basedir:
-            shop_path = "%s/shop" % basedir
-            if not os.path.exists(basedir):
-                raise ServiceConfigError("Base directory does not exist.")
-            elif not os.path.exists(shop_path):
-                raise ServiceConfigError("'shop' does not exist in base.")
-        else:
+        if not (basedir := config.get('basedir', '')):
             raise ServiceConfigError("Base directory must be defined.")
+        shop_path = f"{basedir}/shop"
+        if not os.path.exists(basedir):
+            raise ServiceConfigError("Base directory does not exist.")
+        elif not os.path.exists(shop_path):
+            raise ServiceConfigError("'shop' does not exist in base.")
 
     @staticmethod
     def get_config(existing_config):
-        config = {}
         fields = forms.ChopShopConfigForm().fields
-        for name, field in fields.iteritems():
-            config[name] = field.initial
-
+        config = {name: field.initial for name, field in fields.iteritems()}
         # If there is a config in the database, use values from that.
         if existing_config:
             for key, value in existing_config.iteritems():
@@ -55,32 +49,35 @@ class ChopShopService(Service):
 
     @staticmethod
     def get_config_details(config):
-        display_config = {}
-
         # Rename keys so they render nice.
         fields = forms.ChopShopConfigForm().fields
-        for name, field in fields.iteritems():
-            display_config[field.label] = config[name]
-
-        return display_config
+        return {field.label: config[name] for name, field in fields.iteritems()}
 
     @classmethod
-    def generate_config_form(self, config):
-        html = render_to_string('services_config_form.html',
-                                {'name': self.name,
-                                 'form': forms.ChopShopConfigForm(initial=config),
-                                 'config_error': None})
+    def generate_config_form(cls, config):
+        html = render_to_string(
+            'services_config_form.html',
+            {
+                'name': cls.name,
+                'form': forms.ChopShopConfigForm(initial=config),
+                'config_error': None,
+            },
+        )
+
         form = forms.ChopShopConfigForm
         return form, html
 
     @classmethod
-    def generate_runtime_form(self, analyst, config, crits_type, identifier):
-        html = render_to_string('services_run_form.html',
-                                {'name': self.name,
-                                 'form': forms.ChopShopRunForm(),
-                                 'crits_type': crits_type,
-                                 'identifier': identifier})
-        return html
+    def generate_runtime_form(cls, analyst, config, crits_type, identifier):
+        return render_to_string(
+            'services_run_form.html',
+            {
+                'name': cls.name,
+                'form': forms.ChopShopRunForm(),
+                'crits_type': crits_type,
+                'identifier': identifier,
+            },
+        )
 
     @staticmethod
     def bind_runtime_form(analyst, config):
@@ -104,7 +101,7 @@ class ChopShopService(Service):
             modules += ";dns | dns_extractor"
 
         logger.debug("Setting up shop...")
-        shop_path = "%s/shop" % basedir
+        shop_path = f"{basedir}/shop"
         if not os.path.exists(basedir):
             self._error("ChopShop path does not exist")
             return
@@ -132,7 +129,7 @@ class ChopShopService(Service):
         choplib.base_dir = basedir
 
         # XXX: Convert from unicode to str...
-        choplib.modules = str(modules)
+        choplib.modules = modules
 
         chopui.jsonout = jsonhandler
         choplib.jsonout = True
@@ -145,7 +142,7 @@ class ChopShopService(Service):
             try:
                 chopui.bind(choplib)
                 chopui.start()
-                while chopui.jsonclass == None:
+                while chopui.jsonclass is None:
                     time.sleep(.1)
                 chopui.jsonclass.set_service(self)
                 choplib.start()
@@ -213,12 +210,12 @@ class jsonhandler:
         logger.info(message)
         data = message['data']
         if data['msg'] == 'addmod':
-            result = "Add module: %s" % data['name']
+            result = f"Add module: {data['name']}"
         elif data['msg'] == 'finished':
             if data['status'] == 'error':
-                result = "Error: %s" % data['errors']
+                result = f"Error: {data['errors']}"
             else:
-                result = "Finished: %s" % data['status']
+                result = f"Finished: {data['status']}"
         else:
             result = data
         self.service._info(result)

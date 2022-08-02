@@ -33,7 +33,7 @@ def rc4crypt(data, key):
         y = (y + box[x]) % 256
         box[x], box[y] = box[y], box[x]
         out.append(chr(ord(char) ^ box[(box[x] + box[y]) % 256]))
-    
+
     return ''.join(out)
 
 def v3_data(data, key):
@@ -100,31 +100,30 @@ def extract_config(raw_data, key):
 
 def config_clean(raw_config):
     try:
-        newConf = {}
-        newConf["FireWallBypass"] = raw_config["FWB"]
-        newConf["FTPHost"] = raw_config["FTPHOST"]
-        newConf["FTPPassword"] = raw_config["FTPPASS"]
-        newConf["FTPPort"] = raw_config["FTPPORT"]
-        newConf["FTPRoot"] = raw_config["FTPROOT"]
-        newConf["FTPSize"] = raw_config["FTPSIZE"]
-        newConf["FTPKeyLogs"] = raw_config["FTPUPLOADK"]
-        newConf["FTPUserName"] = raw_config["FTPUSER"]
-        newConf["Gencode"] = raw_config["GENCODE"]
-        newConf["Mutex"] = raw_config["MUTEX"]
-        newConf["Domains"] = raw_config["NETDATA"]
-        newConf["OfflineKeylogger"] = raw_config["OFFLINEK"]
-        newConf["Password"] = raw_config["PWD"]
-        newConf["CampaignID"] = raw_config["SID"]
-        newConf["Version"] = raw_config["Version"]
-        return newConf
+        return {
+            "FireWallBypass": raw_config["FWB"],
+            "FTPHost": raw_config["FTPHOST"],
+            "FTPPassword": raw_config["FTPPASS"],
+            "FTPPort": raw_config["FTPPORT"],
+            "FTPRoot": raw_config["FTPROOT"],
+            "FTPSize": raw_config["FTPSIZE"],
+            "FTPKeyLogs": raw_config["FTPUPLOADK"],
+            "FTPUserName": raw_config["FTPUSER"],
+            "Gencode": raw_config["GENCODE"],
+            "Mutex": raw_config["MUTEX"],
+            "Domains": raw_config["NETDATA"],
+            "OfflineKeylogger": raw_config["OFFLINEK"],
+            "Password": raw_config["PWD"],
+            "CampaignID": raw_config["SID"],
+            "Version": raw_config["Version"],
+        }
+
     except:
         return raw_config
 
         
 def config(data):
-    versionKey = version_check(data)
-    if versionKey:
-        conf_data =  extract_config(data, versionKey)
-        return conf_data
+    if versionKey := version_check(data):
+        return extract_config(data, versionKey)
     else:
         return None

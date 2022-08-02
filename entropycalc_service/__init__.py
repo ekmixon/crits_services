@@ -31,7 +31,7 @@ class EntropycalcService(Service):
 
     @staticmethod
     def valid_for(obj):
-        if obj.filedata.grid_id == None:
+        if obj.filedata.grid_id is None:
             raise ServiceConfigError("Missing filedata.")
 
     @staticmethod
@@ -40,19 +40,21 @@ class EntropycalcService(Service):
             # The values are submitted as a list for some reason.
             data = {'start': config['start'][0], 'end': config['end'][0]}
         else:
-            data = {}
             fields = forms.EntropyCalcRunForm().fields
-            for name, field in fields.iteritems():
-                data[name] = field.initial
+            data = {name: field.initial for name, field in fields.iteritems()}
         return forms.EntropyCalcRunForm(data)
 
     @classmethod
-    def generate_runtime_form(self, analyst, config, crits_type, identifier):
-        return render_to_string('services_run_form.html',
-                                {'name': self.name,
-                                 'form': forms.EntropyCalcRunForm(),
-                                 'crits_type': crits_type,
-                                 'identifier': identifier})
+    def generate_runtime_form(cls, analyst, config, crits_type, identifier):
+        return render_to_string(
+            'services_run_form.html',
+            {
+                'name': cls.name,
+                'form': forms.EntropyCalcRunForm(),
+                'crits_type': crits_type,
+                'identifier': identifier,
+            },
+        )
 
     def _calculate_entropy(self, data):
         entropy = Decimal(0)

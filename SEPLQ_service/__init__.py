@@ -38,14 +38,14 @@ class SEPLQService(Service):
 
     @staticmethod
     def valid_for(obj):
-        if obj.filedata.grid_id == None:
+        if obj.filedata.grid_id is None:
             raise ServiceConfigError("Missing filedata.")
         data = obj.filedata.read()
         if len(data) < 4:
             raise ServiceConfigError("Need at least 4 bytes.")
         # Reset the read pointer.
         obj.filedata.seek(0)
-        if not data[0:4] == b'\x90\x12\x00\x00':
+        if data[:4] != b'\x90\x12\x00\x00':
             raise ServiceConfigError("Not a SEP Local Quarantine file")
 
     def run(self, obj, config):
@@ -62,36 +62,35 @@ class SEPLQService(Service):
         user = self.current_task.user
         fields = (
         "Filename",
-	"Num Failed Remediations",
-	"Num Legacy Infections",
-	"Num Remediations",
-	"Num Snapshots",
-	"Record Type",
-	"Remediations Type",
-	"Restore To Orig Locn Unavailable",
-	"Session Item Count",
-	"Session Item Index",
-	"Structure Version",
-	"Extra Info (QF Time)",
-	"Extra Info (SND Time)",
-	"Extra Info (Unique ID",
-	"Extra Info (VBin Time)",
-	"Flags",
-	"Full Path and LFN",
-	"Log Line",
-	"Record ID",
-	"Size",
-	"Storage Instance ID",
-	"Storage Key",
-	"Storage Name",
-	"WDescription",
-	"Timestamp (in local time)"
-	)
+        "Num Failed Remediations",
+        "Num Legacy Infections",
+        "Num Remediations",
+        "Num Snapshots",
+        "Record Type",
+        "Remediations Type",
+        "Restore To Orig Locn Unavailable",
+        "Session Item Count",
+        "Session Item Index",
+        "Structure Version",
+        "Extra Info (QF Time)",
+        "Extra Info (SND Time)",
+        "Extra Info (Unique ID",
+        "Extra Info (VBin Time)",
+        "Flags",
+        "Full Path and LFN",
+        "Log Line",
+        "Record ID",
+        "Size",
+        "Storage Instance ID",
+        "Storage Key",
+        "Storage Name",
+        "WDescription",
+        "Timestamp (in local time)"
+        )
 
 
 
-        self._info("name: %s" % name )
-        n = 0
+        self._info(f"name: {name}")
         if not user.has_access_to(SampleACL.WRITE):
             self._info("User does not have permission to add Samples to CRITs")
             self._add_result("Extrat Canceled", "User does not have permission to add Samples to CRITs")
@@ -99,9 +98,8 @@ class SEPLQService(Service):
 
         for i in metaout:
             if i and i != 0 and i != "0" and i != "":
-                self._info("meta: %s" % str(i))
+                self._info(f"meta: {str(i)}")
                 self._add_result('SEPLQ', str(i))
-            n+=1
         self._info("New file: %s (%d bytes, %s)" % (name, len(data), h))
         handle_file(name, io.BytesIO(data).read(), self.obj.source,
                 related_id=str(obj.id),

@@ -39,7 +39,7 @@ class CuckooService(Service):
         # Convert it to a list of strings.
         machines = config.get('machine', [])
         if isinstance(machines, basestring):
-            config['machine'] = [machine for machine in machines.split('\r\n')]
+            config['machine'] = list(machines.split('\r\n'))
         errors = []
         if not config['host']:
             errors.append("Cuckoo host required.")
@@ -52,12 +52,8 @@ class CuckooService(Service):
 
     @staticmethod
     def get_config(existing_config):
-        # Generate default config from form and initial values.
-        config = {}
         fields = forms.CuckooConfigForm().fields
-        for name, field in fields.iteritems():
-            config[name] = field.initial
-
+        config = {name: field.initial for name, field in fields.iteritems()}
         # If there is a config in the database, use values from that.
         if existing_config:
             for key, value in existing_config.iteritems():
@@ -65,14 +61,18 @@ class CuckooService(Service):
         return config
 
     @classmethod
-    def generate_config_form(self, config):
+    def generate_config_form(cls, config):
         # Convert machines to newline separated strings
         config['machine'] = '\r\n'.join(config['machine'])
-        html = render_to_string('services_config_form.html',
-                                {'name': self.name,
-                                 'form': forms.
-                                    CuckooConfigForm(initial=config),
-                                 'config_error': None})
+        html = render_to_string(
+            'services_config_form.html',
+            {
+                'name': cls.name,
+                'form': forms.CuckooConfigForm(initial=config),
+                'config_error': None,
+            },
+        )
+
         form = forms.CuckooConfigForm
         return form, html
 
@@ -81,14 +81,17 @@ class CuckooService(Service):
         return [(machine, machine) for machine in machines]
 
     @classmethod
-    def generate_runtime_form(self, analyst, config, crits_type, identifier):
+    def generate_runtime_form(cls, analyst, config, crits_type, identifier):
         machines = CuckooService._tuplize_machines(config['machine'])
-        return render_to_string("services_run_form.html",
-                                {'name': self.name,
-                                 'form': forms.CuckooRunForm(machines=machines,
-                                                             initial=config),
-                                 'crits_type': crits_type,
-                                 'identifier': identifier})
+        return render_to_string(
+            "services_run_form.html",
+            {
+                'name': cls.name,
+                'form': forms.CuckooRunForm(machines=machines, initial=config),
+                'crits_type': crits_type,
+                'identifier': identifier,
+            },
+        )
 
     @staticmethod
     def bind_runtime_form(analyst, config):
@@ -118,8 +121,7 @@ class CuckooService(Service):
     def valid_for(obj):
         valid_types = ('Domain', 'File Name', 'IPv4 Address', 'URI')
         if isinstance(obj, Indicator) and obj.ind_type not in valid_types:
-            raise ServiceConfigError("Invalid Indicator Type: %s" %
-                                     obj.ind_type)
+            raise ServiceConfigError(f"Invalid Indicator Type: {obj.ind_type}")
         if isinstance(obj, Sample) and obj.filedata.grid_id is None:
             raise ServiceConfigError("Invalid Sample Data: Missing File Data")
 
@@ -139,32 +141,27 @@ class CuckooService(Service):
 
     @property
     def base_url(self):
-        if self.config.get('secure'):
-            proto = 'https'
-        else:
-            proto = 'http'
-        return '%s://%s:%s' % (proto, self.config.get('host'),
-                               self.config.get('port'))
+        proto = 'https' if self.config.get('secure') else 'http'
+        return f"{proto}://{self.config.get('host')}:{self.config.get('port')}"
 
     @property
     def proxies(self):
         proxy_host = self.config.get('proxy_host')
         proxy_port = self.config.get('proxy_port')
-        if proxy_host:
-            proxy = proxy_host + ':' + str(proxy_port)
-        else:
-            proxy = ''
+        proxy = f'{proxy_host}:{str(proxy_port)}' if proxy_host else ''
         return {'http': proxy, 'https': proxy}
 
     def get_machines(self):
-        machinelist = requests.get(self.base_url + '/machines/list',
-                                   proxies=self.proxies)
+        machinelist = requests.get(
+            f'{self.base_url}/machines/list', proxies=self.proxies
+        )
+
         machinelist = dict(machinelist.json())['machines']
         ids = []
         for x in machinelist:
             ids.append(x.get('name'))
             machineid = x.get('name')
-            self._info("Found machine ID %s" % machineid)
+            self._info(f"Found machine ID {machineid}")
         return ids
 
     def submit_task(self, obj):
@@ -177,12 +174,10 @@ class CuckooService(Service):
         if package != 'auto':
             payload['package'] = package
 
-        timeout = self.config.get('timeout')
-        if timeout:
+        if timeout := self.config.get('timeout'):
             payload['timeout'] = timeout
 
-        enforce_timeout = self.config.get('enforce_timeout')
-        if enforce_timeout:
+        if enforce_timeout := self.config.get('enforce_timeout'):
             payload['enforce_timeout'] = 'True'
 
         tor = self.config.get('tor')
@@ -195,9 +190,8 @@ class CuckooService(Service):
 
         options = ",".join(list(map(lambda option: '{0}={1}'.format(option,
                            options[option]), options.keys())))
-        custom_options = str(self.config.get('options'))
-        if custom_options:
-            if len(options) > 0:
+        if custom_options := str(self.config.get('options')):
+            if options != "":
                 options += ","
             options += custom_options
 
@@ -272,13 +266,23 @@ class CuckooService(Service):
         if self.obj._meta['crits_type'] in ('Domain', 'IP', 'Indicator'):
             # Submit a url to the cuckoo instnace if the crits_type was an
             # Indicator, IP, or Domain.
-            r = requests.post(self.base_url + '/tasks/create/url',
-                              files=files, data=payload, proxies=self.proxies)
+            r = requests.post(
+                f'{self.base_url}/tasks/create/url',
+                files=files,
+                data=payload,
+                proxies=self.proxies,
+            )
+
         elif self.obj._meta['crits_type'] == 'Sample':
             # Submit a file to the cuckoo instance if the crits_type was a
             # Sample.
-            r = requests.post(self.base_url + '/tasks/create/file',
-                              files=files, data=payload, proxies=self.proxies)
+            r = requests.post(
+                f'{self.base_url}/tasks/create/file',
+                files=files,
+                data=payload,
+                proxies=self.proxies,
+            )
+
 
         # TODO: check return status codes
         if r.status_code != requests.codes.ok:
@@ -295,48 +299,52 @@ class CuckooService(Service):
             task_id = response['task_id']
 
         self._info("Options: {0}".format(options))
-        self._info("Submitted Task ID %s for machine %s" % (task_id, machine))
+        self._info(f"Submitted Task ID {task_id} for machine {machine}")
 
         return task_id
 
     def get_task(self, task_id):
-        r = requests.get(self.base_url + '/tasks/view/%s' % task_id,
-                         proxies=self.proxies)
+        r = requests.get(
+            self.base_url + f'/tasks/view/{task_id}', proxies=self.proxies
+        )
+
 
         if r.status_code != requests.codes.ok:
-            self._warning("No task with ID %s found?" % task_id)
+            self._warning(f"No task with ID {task_id} found?")
             return None
 
         return dict(r.json())['task']
 
     def get_report(self, task_id):
-        r = requests.get(self.base_url + '/tasks/report/%s' % task_id,
-                         proxies=self.proxies)
+        r = requests.get(
+            self.base_url + f'/tasks/report/{task_id}', proxies=self.proxies
+        )
+
 
         if r.status_code != requests.codes.ok:
-            self._warning("No report for task with ID %s found?" % task_id)
+            self._warning(f"No report for task with ID {task_id} found?")
             return {}
 
         return dict(r.json())
 
     def get_dropped(self, task_id):
-        r = requests.get(self.base_url + '/tasks/report/%s/dropped' % task_id,
-                         proxies=self.proxies)
+        r = requests.get(
+            self.base_url + f'/tasks/report/{task_id}/dropped',
+            proxies=self.proxies,
+        )
+
 
         if r.status_code != requests.codes.ok:
-            self._warning("Could not fetch dropped files for task ID %s" %
-                          task_id)
+            self._warning(f"Could not fetch dropped files for task ID {task_id}")
             return None
 
         return r.content
 
     def get_pcap(self, task_id):
-        r = requests.get(self.base_url + '/pcap/get/%s' % task_id,
-                         proxies=self.proxies)
+        r = requests.get(self.base_url + f'/pcap/get/{task_id}', proxies=self.proxies)
 
         if r.status_code != requests.codes.ok:
-            self._warning("Could not fetch PCAP for task ID %s" %
-                          task_id)
+            self._warning(f"Could not fetch PCAP for task ID {task_id}")
             return None
 
         return r.content
@@ -349,7 +357,7 @@ class CuckooService(Service):
         step = 5
         max_delay = 120
 
-        self._info("Retrieving results for Task ID %s" % task_id)
+        self._info(f"Retrieving results for Task ID {task_id}")
 
         while delay <= max_delay:
             taskinfo = self.get_task(task_id)
@@ -381,10 +389,7 @@ class CuckooService(Service):
                 dropped = self.get_dropped(task_id)
                 self._debug("Received %d bytes" % len(dropped))
                 self._process_dropped(dropped)
-                pcap = self.get_pcap(task_id)
-                # If there was any error fetching the PCAP, don't try to
-                # process it.
-                if pcap:
+                if pcap := self.get_pcap(task_id):
                     self._process_pcap(pcap)
 
                 return
@@ -409,10 +414,8 @@ class CuckooService(Service):
         self.config = config
         self.obj = obj
 
-        task_id = self.config.get('existing_task_id')
-
-        if task_id:
-            self._info("Reusing existing task with ID: %s" % task_id)
+        if task_id := self.config.get('existing_task_id'):
+            self._info(f"Reusing existing task with ID: {task_id}")
             task_id = {'existing_task': task_id}
         else:
             task_id = self.submit_task(obj)
@@ -420,9 +423,9 @@ class CuckooService(Service):
                 return
             if len(task_id) > 1:
                 tasks = ', '.join([str(v) for v in sorted(task_id.values())])
-                self._info("Successfully submitted tasks with IDs: %s" % tasks)
+                self._info(f"Successfully submitted tasks with IDs: {tasks}")
             else:
-                self._info("Successfully submitted task with ID: %s" % task_id)
+                self._info(f"Successfully submitted task with ID: {task_id}")
 
         self._notify()
 
@@ -430,7 +433,7 @@ class CuckooService(Service):
             try:
                 self.run_cuckoo(machine, task_id)
             except Exception as e:
-                self._error("Error retrieving Task ID %s: %s" % (task_id, e))
+                self._error(f"Error retrieving Task ID {task_id}: {e}")
 
     def _process_info(self, info, machine_id):
         if not info:
@@ -446,15 +449,12 @@ class CuckooService(Service):
         webui_host = self.config.get('webui_host')
         webui_port = self.config.get('webui_port')
 
-        data = {}
-        data['started'] = info.get('started')
+        data = {'started': info.get('started')}
         data['ended'] = info.get('ended')
 
         #  If there is a webui set up and configured, give the link
         if webui_host:
-            link = 'http://%s:%s/analysis/%s' % (webui_host,
-                                                 webui_port,
-                                                 info.get('id'))
+            link = f"http://{webui_host}:{webui_port}/analysis/{info.get('id')}"
             data['analysis link'] = link
         else:
             data['analysis_id'] = info.get('id')
@@ -467,8 +467,8 @@ class CuckooService(Service):
 
         self._debug("Processing Signatures")
 
+        subtype = 'signature'
         for signature in signatures:
-            subtype = 'signature'
             result = signature['description']
             data = {'severity': signature['severity'],
                     'name': signature['name']}
@@ -481,8 +481,8 @@ class CuckooService(Service):
 
         self._debug("Processing Behavior")
 
+        subtype = 'process'
         for process in behavior.get('processes'):
-            subtype = 'process'
             result = process.get('process_name', '')
             data = {'process_id': process.get('process_id', ''),
                     'parent_id': process.get('parent_id', ''),
@@ -571,8 +571,8 @@ class CuckooService(Service):
 
             data = t.extractfile(f).read()
             name = os.path.basename(f.name)
-            if any([fnmatch.fnmatch(name, x) for x in ignored]):
-                self._debug("Ignoring file: %s" % name)
+            if any(fnmatch.fnmatch(name, x) for x in ignored):
+                self._debug(f"Ignoring file: {name}")
                 continue
 
             h = md5(data).hexdigest()
@@ -600,11 +600,14 @@ class CuckooService(Service):
             return
 
         h = md5(pcap).hexdigest()
-        result = handle_pcap_file("%s.pcap" % h,
-                                  pcap,
-                                  org,
-                                  user=self.current_task.user,
-                                  related_id=str(self.obj.id),
-                                  related_type=self.obj._meta['crits_type'],
-                                  method=self.name)
+        result = handle_pcap_file(
+            f"{h}.pcap",
+            pcap,
+            org,
+            user=self.current_task.user,
+            related_id=str(self.obj.id),
+            related_type=self.obj._meta['crits_type'],
+            method=self.name,
+        )
+
         self._add_result("pcap_added", h, {'md5': h})

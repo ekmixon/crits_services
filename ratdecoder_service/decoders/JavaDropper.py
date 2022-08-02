@@ -39,8 +39,7 @@ def parse_ek(key, drop):
 def parse_load(key, drop):
     raw_key = '{0}ALSKEOPQLFKJDUSIKSJAUIE'.format(key)
     enc_key = hashlib.sha256(raw_key).hexdigest()
-    decoded = decrypt_RC4(enc_key, drop)
-    return decoded
+    return decrypt_RC4(enc_key, drop)
 
 def parse_stub(drop):
     keys = ['0kwi38djuie8oq89', '0B4wCrd5N2OxG93h']
@@ -57,8 +56,7 @@ def parse_stub(drop):
 def parse_xor(key, drop):
     key2 = 'FYj&w3bd"m/kSZjD'
     decoded = decrypt_XOR(key2, drop)
-    decompressed = zlib.decompress(decoded, 16+zlib.MAX_WBITS)
-    return decompressed
+    return zlib.decompress(decoded, 16+zlib.MAX_WBITS)
 
 # Jar Parser
 def run(raw_data):

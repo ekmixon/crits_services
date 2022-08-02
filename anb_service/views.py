@@ -10,7 +10,7 @@ from . import handlers
 def get_anb_data(request, ctype, cid):
     result = { "success": "false", "message": "No data available." }
 
-    sources = user_sources("%s" % request.user)
+    sources = user_sources(f"{request.user}")
     if not sources:
         return HttpResponse(json.dumps(result), content_type="application/json")
 

@@ -37,60 +37,60 @@ def extract_config(raw_data):
         return None
     
 def config(data):
+    if not (raw_conf := extract_config(data)):
+        return
     conf = {}
-    raw_conf = extract_config(data)
-    if raw_conf:
-        if len(raw_conf) > 20:
-            domains = ''
-            ports = ''
+    if len(raw_conf) > 20:
+        domains = ''
+        ports = ''
             #Config sections 0 - 19 contain a list of Domains and Ports
-            for i in range(0,19):
-                if len(raw_conf[i]) > 1:
-                    domains += xor(raw_conf[i]).split(':')[0]
-                    domains += ','
-                    ports += xor(raw_conf[i]).split(':')[1]
-                    ports += ','
-                
-            conf['Domain'] = domains
-            conf['Port'] = ports
-            conf['CampaignID'] = string_print(xor(raw_conf[20]))
-            conf['Password'] = string_print(xor(raw_conf[21]))
-            conf['InstallFlag'] = string_print(xor(raw_conf[22]))
-            conf['InstallDir'] = string_print(xor(raw_conf[25]))
-            conf['InstallFileName'] = string_print(xor(raw_conf[26]))
-            conf['ActiveXStartup'] = string_print(xor(raw_conf[27]))
-            conf['REGKeyHKLM'] = string_print(xor(raw_conf[28]))
-            conf['REGKeyHKCU'] = string_print(xor(raw_conf[29]))
-            conf['EnableMessageBox'] = string_print(xor(raw_conf[30]))
-            conf['MessageBoxIcon'] = string_print(xor(raw_conf[31]))
-            conf['MessageBoxButton'] = string_print(xor(raw_conf[32]))
-            conf['InstallMessageTitle'] = string_print(xor(raw_conf[33]))
-            conf['InstallMessageBox'] = string_print(xor(raw_conf[34]))
-            conf['ActivateKeylogger'] = string_print(xor(raw_conf[35]))
-            conf['KeyloggerBackspace'] = string_print(xor(raw_conf[36]))
-            conf['KeyloggerEnableFTP'] = string_print(xor(raw_conf[37]))
-            conf['FTPAddress'] = string_print(xor(raw_conf[38]))
-            conf['FTPDirectory'] = string_print(xor(raw_conf[39]))
-            conf['FTPUserName'] = string_print(xor(raw_conf[41]))
-            conf['FTPPassword'] = string_print(xor(raw_conf[42]))
-            conf['FTPPort'] = string_print(xor(raw_conf[43]))
-            conf['FTPInterval'] = string_print(xor(raw_conf[44]))
-            conf['Persistance'] = string_print(xor(raw_conf[59]))
-            conf['HideFile'] = string_print(xor(raw_conf[60]))
-            conf['ChangeCreationDate'] = string_print(xor(raw_conf[61]))
-            conf['Mutex'] = string_print(xor(raw_conf[62]))        
-            conf['MeltFile'] = string_print(xor(raw_conf[63]))
-            conf['CyberGateVersion'] = string_print(xor(raw_conf[67]))      
-            conf['StartupPolicies'] = string_print(xor(raw_conf[69]))
-            conf['USBSpread'] = string_print(xor(raw_conf[70]))
-            #conf['P2PSpread'] = string_print(xor(raw_conf[71])
-            #conf['GoogleChromePasswords'] = string_print(xor(raw_conf[73]))
+        for i in range(19):
+            if len(raw_conf[i]) > 1:
+                domains += xor(raw_conf[i]).split(':')[0]
+                domains += ','
+                ports += xor(raw_conf[i]).split(':')[1]
+                ports += ','
 
-        if xor(raw_conf[57]) == 0 or xor(raw_conf[57]) == None:
-            conf['ProcessInjection'] = 'Disabled'
-        elif xor(raw_conf[57]) == 1:
-            conf['ProcessInjection'] = 'Default Browser'
-        elif xor(raw_conf[57]) == 2:
-            conf['ProcessInjection'] = xor(raw_conf[58])
+        conf['Domain'] = domains
+        conf['Port'] = ports
+        conf['CampaignID'] = string_print(xor(raw_conf[20]))
+        conf['Password'] = string_print(xor(raw_conf[21]))
+        conf['InstallFlag'] = string_print(xor(raw_conf[22]))
+        conf['InstallDir'] = string_print(xor(raw_conf[25]))
+        conf['InstallFileName'] = string_print(xor(raw_conf[26]))
+        conf['ActiveXStartup'] = string_print(xor(raw_conf[27]))
+        conf['REGKeyHKLM'] = string_print(xor(raw_conf[28]))
+        conf['REGKeyHKCU'] = string_print(xor(raw_conf[29]))
+        conf['EnableMessageBox'] = string_print(xor(raw_conf[30]))
+        conf['MessageBoxIcon'] = string_print(xor(raw_conf[31]))
+        conf['MessageBoxButton'] = string_print(xor(raw_conf[32]))
+        conf['InstallMessageTitle'] = string_print(xor(raw_conf[33]))
+        conf['InstallMessageBox'] = string_print(xor(raw_conf[34]))
+        conf['ActivateKeylogger'] = string_print(xor(raw_conf[35]))
+        conf['KeyloggerBackspace'] = string_print(xor(raw_conf[36]))
+        conf['KeyloggerEnableFTP'] = string_print(xor(raw_conf[37]))
+        conf['FTPAddress'] = string_print(xor(raw_conf[38]))
+        conf['FTPDirectory'] = string_print(xor(raw_conf[39]))
+        conf['FTPUserName'] = string_print(xor(raw_conf[41]))
+        conf['FTPPassword'] = string_print(xor(raw_conf[42]))
+        conf['FTPPort'] = string_print(xor(raw_conf[43]))
+        conf['FTPInterval'] = string_print(xor(raw_conf[44]))
+        conf['Persistance'] = string_print(xor(raw_conf[59]))
+        conf['HideFile'] = string_print(xor(raw_conf[60]))
+        conf['ChangeCreationDate'] = string_print(xor(raw_conf[61]))
+        conf['Mutex'] = string_print(xor(raw_conf[62]))
+        conf['MeltFile'] = string_print(xor(raw_conf[63]))
+        conf['CyberGateVersion'] = string_print(xor(raw_conf[67]))
+        conf['StartupPolicies'] = string_print(xor(raw_conf[69]))
+        conf['USBSpread'] = string_print(xor(raw_conf[70]))
+                #conf['P2PSpread'] = string_print(xor(raw_conf[71])
+                #conf['GoogleChromePasswords'] = string_print(xor(raw_conf[73]))
 
-        return conf
+    if xor(raw_conf[57]) == 0 or xor(raw_conf[57]) is None:
+        conf['ProcessInjection'] = 'Disabled'
+    elif xor(raw_conf[57]) == 1:
+        conf['ProcessInjection'] = 'Default Browser'
+    elif xor(raw_conf[57]) == 2:
+        conf['ProcessInjection'] = xor(raw_conf[58])
+
+    return conf

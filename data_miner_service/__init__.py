@@ -31,9 +31,8 @@ class DataMinerService(Service):
 
     @staticmethod
     def valid_for(obj):
-        if isinstance(obj, Sample):
-            if obj.filedata.grid_id == None:
-                raise ServiceConfigError("Missing filedata.")
+        if isinstance(obj, Sample) and obj.filedata.grid_id is None:
+            raise ServiceConfigError("Missing filedata.")
 
     def run(self, obj, config):
         if isinstance(obj, Event):
@@ -55,29 +54,25 @@ class DataMinerService(Service):
         ips = extract_ips(data)
         for ip in ips:
             tdict = {'Type': IndicatorTypes.IPV4_ADDRESS}
-            id_ = Indicator.objects(value=ip).only('id').first()
-            if id_:
+            if id_ := Indicator.objects(value=ip).only('id').first():
                 tdict['exists'] = str(id_.id)
             self._add_result('Potential IP Address', ip, tdict)
         domains = extract_domains(data)
         for domain in domains:
             tdict = {'Type': IndicatorTypes.DOMAIN}
-            id_ =  Indicator.objects(value=domain).only('id').first()
-            if id_:
+            if id_ := Indicator.objects(value=domain).only('id').first():
                 tdict['exists'] = str(id_.id)
             self._add_result('Potential Domains', domain, tdict)
         urls = extract_urls(data)
         for url in urls:
             tdict = {'Type': IndicatorTypes.URI}
-            id_ = Indicator.objects(value=url).only('id').first()
-            if id_:
+            if id_ := Indicator.objects(value=url).only('id').first():
                 tdict['exists'] = str(id_.id)
             self._add_result('Potential URLs', url, tdict)
         emails = extract_emails(data)
         for email in emails:
             tdict = {'Type': IndicatorTypes.EMAIL_ADDRESS}
-            id_ = Indicator.objects(value=email).only('id').first()
-            if id_:
+            if id_ := Indicator.objects(value=email).only('id').first():
                 tdict['exists'] = str(id_.id)
             self._add_result('Potential Emails', email, tdict)
         hashes = extract_hashes(data)
@@ -137,7 +132,7 @@ def extract_urls(data):
     urls = [each for each in results if len(each) >0]
     final_urls = []
     for item in urls:
-        url = item[0]+"://"+item[1]+item[2]
+        url = f"{item[0]}://{item[1]}{item[2]}"
         if url not in final_urls:
             final_urls.append(url)
     return final_urls
@@ -167,14 +162,14 @@ def extract_hashes(data):
     re_sha256 = re.compile("\\b[a-f0-9]{64}\\b", re.I | re.S | re.M)
     re_ssdeep = re.compile("\\b\\d{2}:[A-Za-z0-9/+]{3,}:[A-Za-z0-9/+]{3,}\\b", re.I | re.S | re.M)
 
-    final_hashes = []
     md5 = IndicatorTypes.MD5
     sha1 = IndicatorTypes.SHA1
     sha256 = IndicatorTypes.SHA256
     ssdeep = IndicatorTypes.SSDEEP
-    final_hashes.extend(
-        [(md5,each) for each in re.findall(re_md5, data) if len(each) > 0]
-    )
+    final_hashes = [
+        (md5, each) for each in re.findall(re_md5, data) if len(each) > 0
+    ]
+
     final_hashes.extend(
         [(sha1,each) for each in re.findall(re_sha1, data) if len(each) > 0]
     )

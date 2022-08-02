@@ -29,7 +29,7 @@ class FireeyeService(Service):
         # Convert it to a list of strings.
         machines = config.get('machine', [])
         if isinstance(machines, basestring):
-            config['machine'] = [machine for machine in machines.split('\r\n')]
+            config['machine'] = list(machines.split('\r\n'))
         errors = []
         if not config['host']:
             errors.append("Fireeye host required.")
@@ -44,12 +44,8 @@ class FireeyeService(Service):
 
     @staticmethod
     def get_config(existing_config):
-        # Generate default config from form and initial values.
-        config = {}
         fields = forms.FireeyeConfigForm().fields
-        for name, field in fields.iteritems():
-            config[name] = field.initial
-
+        config = {name: field.initial for name, field in fields.iteritems()}
         # If there is a config in the database, use values from that.
         if existing_config:
             for key, value in existing_config.iteritems():
@@ -57,28 +53,37 @@ class FireeyeService(Service):
         return config
 
     @classmethod
-    def generate_config_form(self, config):
+    def generate_config_form(cls, config):
         # Convert machines to newline separated strings
-            config['machine'] = '\r\n'.join(config['machine'])
-            html = render_to_string('services_config_form.html',
-                                    {'name': self.name,
-                                    'form': forms.FireeyeConfigForm(initial=config),
-                                    'config_error': None})
-            form = forms.FireeyeConfigForm
-            return form, html
+        config['machine'] = '\r\n'.join(config['machine'])
+        html = render_to_string(
+            'services_config_form.html',
+            {
+                'name': cls.name,
+                'form': forms.FireeyeConfigForm(initial=config),
+                'config_error': None,
+            },
+        )
+
+        form = forms.FireeyeConfigForm
+        return form, html
 
     @staticmethod
     def _tuplize_machines(machines):
         return [(machine, machine) for machine in machines]
 
     @classmethod
-    def generate_runtime_form(self, analyst, config, crits_type, identifier):
+    def generate_runtime_form(cls, analyst, config, crits_type, identifier):
         machines = FireeyeService._tuplize_machines(config['machine'])
-        return render_to_string("services_run_form.html",
-                                {'name': self.name,
-                                'form': forms.FireeyeRunForm(machines=machines),
-                                'crits_type': crits_type,
-                                'identifier': identifier})
+        return render_to_string(
+            "services_run_form.html",
+            {
+                'name': cls.name,
+                'form': forms.FireeyeRunForm(machines=machines),
+                'crits_type': crits_type,
+                'identifier': identifier,
+            },
+        )
 
     @staticmethod
     def bind_runtime_form(analyst, config):
@@ -95,7 +100,7 @@ class FireeyeService(Service):
 
     @staticmethod
     def valid_for(obj):
-        if obj.filedata.grid_id == None:
+        if obj.filedata.grid_id is None:
             raise ServiceConfigError("Missing filedata.")
 
     @staticmethod
@@ -118,7 +123,7 @@ class FireeyeService(Service):
 
     @property
     def base_url(self):
-        return 'https://%s/wsapis/v1.1.0' % (self.config.get('host'))
+        return f"https://{self.config.get('host')}/wsapis/v1.1.0"
 
     @property
     def username(self):
@@ -132,21 +137,23 @@ class FireeyeService(Service):
     def proxies(self):
         proxy_host = self.config.get('proxy_host')
         proxy_port = self.config.get('proxy_port')
-        if proxy_host:
-            proxy = proxy_host + ':' + str(proxy_port)
-        else:
-            proxy = ''
+        proxy = f'{proxy_host}:{str(proxy_port)}' if proxy_host else ''
         return {'http': proxy, 'https': proxy}
     
     #Authenicating to the CMS with a username and password. Then retrieving the token to use in this session.
     @property
     def authentication(self):
-        credentials = self.username + ':' + self.password
+        credentials = f'{self.username}:{self.password}'
         b64credentials = base64.b64encode(credentials)
-        headers = {'Authorization': 'Basic ' + b64credentials}
-        r = requests.post(self.base_url + '/auth/login', headers=headers, verify=False, proxies=self.proxies)
-        token = r.headers['X-FeApi-Token']
-        return token
+        headers = {'Authorization': f'Basic {b64credentials}'}
+        r = requests.post(
+            f'{self.base_url}/auth/login',
+            headers=headers,
+            verify=False,
+            proxies=self.proxies,
+        )
+
+        return r.headers['X-FeApi-Token']
 
     #Function to parse out the xml node (file, network, etc) within the os-changes node. 
     def parse(self, k, itags, iattributes, ikey, nodes):
@@ -191,20 +198,23 @@ class FireeyeService(Service):
 
         submission = {'filedata' : (obj.filename,obj.filedata)}
         self._info("About to post to FE MAS")
-        r = requests.post(self.base_url + '/submissions',
-                          headers=headers,
-                          files=submission,
-                          data ={'options':jsondata},
-                          verify=False,
-                          proxies=self.proxies)
-        
+        r = requests.post(
+            f'{self.base_url}/submissions',
+            headers=headers,
+            files=submission,
+            data={'options': jsondata},
+            verify=False,
+            proxies=self.proxies,
+        )
+
+
         if r.status_code != requests.codes.ok:
             msg = "Failed to submit file to machine '%s'." % machine
             self._error(msg)
             self._debug(r.text)
-        
+
         task_id = r.json()[0]['ID']
-        self._info("Submitted Task ID %s for machine %s" % (task_id, machine))
+        self._info(f"Submitted Task ID {task_id} for machine {machine}")
         self.timeout = timeout
         self.sc = sc
         self.task = task_id
@@ -215,7 +225,13 @@ class FireeyeService(Service):
         headers = {'X-FEApi-Token': self.sc}
         first = True
         while counter <= 5:
-            r = requests.get(self.base_url + '/submissions/status/' + self.task, headers=headers, verify=False, proxies=self.proxies)
+            r = requests.get(
+                f'{self.base_url}/submissions/status/{self.task}',
+                headers=headers,
+                verify=False,
+                proxies=self.proxies,
+            )
+
             try:
                 res = r.json()['submissionStatus']
             except TypeError as err:
@@ -223,20 +239,27 @@ class FireeyeService(Service):
             if first is True:
                 time.sleep(self.timeout+10)
             if res == "Done":
-                complete = requests.get(self.base_url + '/submissions/results/' + self.task, headers=headers, verify=False, proxies=self.proxies, stream=True)
+                complete = requests.get(
+                    f'{self.base_url}/submissions/results/{self.task}',
+                    headers=headers,
+                    verify=False,
+                    proxies=self.proxies,
+                    stream=True,
+                )
+
                 analysis_xml = etree.parse(complete.raw)
                 root = analysis_xml.getroot()
                 analysis_id = root.find('{http://www.fireeye.com/alert/2013/AlertSchema}alert')
                 fe_id = analysis_id.attrib['id']
-                self._info ("Analysis has been completed. FE_ID = %s" % fe_id)
+                self._info(f"Analysis has been completed. FE_ID = {fe_id}")
                 self.fe_id = fe_id
                 break
             elif res == "In Progress":
-                self._info("Analysis is still running for %s" % self.task)
+                self._info(f"Analysis is still running for {self.task}")
                 time.sleep(30)
                 counter += 1
             elif res == "Submission not found":
-                self._info("Submission not found for task %s" % self.task)
+                self._info(f"Submission not found for task {self.task}")
                 break
             first = False
             

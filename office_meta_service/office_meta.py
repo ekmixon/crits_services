@@ -201,8 +201,7 @@ class OfficeParser(object):
         return {}
 
     def lookup_property_id(self, prop_id, prop_type):
-        table = self.summary_mapping.get(binascii.unhexlify(prop_type), {})
-        if table:
+        if table := self.summary_mapping.get(binascii.unhexlify(prop_type), {}):
             return table.get(prop_id, 'Unknown (%d)' % prop_id)
         return 'Unknown'
 
@@ -216,53 +215,53 @@ class OfficeParser(object):
         return (timestamp, datestring)
 
     def parse_properties(self, prop_data, prop_type):
-        if len(prop_data) >= 8:
-            properties = {
-                'size':                 struct.unpack('I', prop_data[:4])[0],
-                'num_properties':       struct.unpack('I', prop_data[4:8])[0],
-                'properties':           [],
+        if len(prop_data) < 8:
+            return {}
+        properties = {
+            'size':                 struct.unpack('I', prop_data[:4])[0],
+            'num_properties':       struct.unpack('I', prop_data[4:8])[0],
+            'properties':           [],
+        }
+        for i in range(properties['num_properties']):
+            offset = (i * 8) + 8
+            if len(prop_data) < (offset+8):
+                break
+            prop = {
+                'id':               struct.unpack('I', prop_data[offset:offset+4])[0],
+                'offset':           struct.unpack('I', prop_data[offset+4:offset+8])[0],
             }
-            for i in range(properties['num_properties']):
-                offset = (i * 8) + 8
-                if len(prop_data) < (offset+8):
-                    break
-                prop = {
-                    'id':               struct.unpack('I', prop_data[offset:offset+4])[0],
-                    'offset':           struct.unpack('I', prop_data[offset+4:offset+8])[0],
-                }
-                offset = prop['offset']
-                if offset >= len(prop_data):
-                    continue
-                prop['name'] = self.lookup_property_id(prop['id'], prop_type)
-                prop['type'] = struct.unpack('I', prop_data[offset:offset+4])[0]
-                if prop['type'] == 0x02:
-                    prop['value'] = struct.unpack('h', prop_data[offset+4:offset+6])[0]
-                elif prop['type'] == 0x03:
-                    prop['value'] = struct.unpack('i', prop_data[offset+4:offset+8])[0]
-                elif prop['type'] == 0x1e:
-                    prop['str_len'] = struct.unpack('i', prop_data[offset+4:offset+8])[0]
-                    if properties.get('code_page', 0) == 0x4b0:
-                        prop['value'] = prop_data[offset+8:offset+8+prop['str_len']-2]
-                    else:
-                        prop['value'] = prop_data[offset+8:offset+8+prop['str_len']-1].replace('\x00', '')
-                elif prop['type'] == 0x0b:
-                    prop['value'] = binascii.hexlify(prop_data[offset+4:offset+8])
-                elif prop['type'] == 0x40:
-                    prop['value'] = struct.unpack('Q', prop_data[offset+4:offset+12])[0]
-                    (prop['timestamp'], prop['date']) = self.timestamp_string(prop['value'])
-                elif prop['type'] == 0x1f:
-                    prop['str_len'] = struct.unpack('I', prop_data[offset+4:offset+8])[0]
-                    prop['value'] = prop_data[offset+8: offset+8+(prop['str_len'] * 2)]
+            offset = prop['offset']
+            if offset >= len(prop_data):
+                continue
+            prop['name'] = self.lookup_property_id(prop['id'], prop_type)
+            prop['type'] = struct.unpack('I', prop_data[offset:offset+4])[0]
+            if prop['type'] == 0x02:
+                prop['value'] = struct.unpack('h', prop_data[offset+4:offset+6])[0]
+            elif prop['type'] == 0x03:
+                prop['value'] = struct.unpack('i', prop_data[offset+4:offset+8])[0]
+            elif prop['type'] == 0x1e:
+                prop['str_len'] = struct.unpack('i', prop_data[offset+4:offset+8])[0]
+                if properties.get('code_page', 0) == 0x4b0:
+                    prop['value'] = prop_data[offset+8:offset+8+prop['str_len']-2]
                 else:
-                    prop['value'] = binascii.hexlify(prop_data[:8])
-                if isinstance(prop['value'], str):
-                    prop['value'] = prop['value'].decode('cp1252').encode('utf-8')
-                prop['result'] = "%s: %s" % (prop['name'], prop['value'])
-                if prop['id'] == 0x01:
-                    properties['code_page'] = prop['result']
-                properties['properties'].append(prop)
-            return properties
-        return {}
+                    prop['value'] = prop_data[offset+8:offset+8+prop['str_len']-1].replace('\x00', '')
+            elif prop['type'] == 0x0b:
+                prop['value'] = binascii.hexlify(prop_data[offset+4:offset+8])
+            elif prop['type'] == 0x40:
+                prop['value'] = struct.unpack('Q', prop_data[offset+4:offset+12])[0]
+                (prop['timestamp'], prop['date']) = self.timestamp_string(prop['value'])
+            elif prop['type'] == 0x1f:
+                prop['str_len'] = struct.unpack('I', prop_data[offset+4:offset+8])[0]
+                prop['value'] = prop_data[offset+8: offset+8+(prop['str_len'] * 2)]
+            else:
+                prop['value'] = binascii.hexlify(prop_data[:8])
+            if isinstance(prop['value'], str):
+                prop['value'] = prop['value'].decode('cp1252').encode('utf-8')
+            prop['result'] = f"{prop['name']}: {prop['value']}"
+            if prop['id'] == 0x01:
+                properties['code_page'] = prop['result']
+            properties['properties'].append(prop)
+        return properties
 
     def parse_summary_information(self, summary_data, prop_type):
         if self.verbose:
@@ -356,7 +355,7 @@ class OfficeParser(object):
                             value = item.get('date', item['value'])
                             print "%50s - %40s" % (item['name'], value)
     def parse_office_doc(self):
-        if (self.find_office_header() == None):
+        if self.find_office_header() is None:
             return None
         self.office_header = self.parse_office_header()
         if self.office_header['maj_ver'] in [3,4]:

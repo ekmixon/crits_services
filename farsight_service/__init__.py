@@ -33,12 +33,8 @@ class FarsightService(Service):
 
     @staticmethod
     def get_config(existing_config):
-        # Generate default config from form and initial values.
-        config = {}
         fields = forms.FarsightConfigForm().fields
-        for name, field in fields.iteritems():
-            config[name] = field.initial
-
+        config = {name: field.initial for name, field in fields.iteritems()}
         # If there is a config in the database, use values from that.
         if existing_config:
             for key, value in existing_config.iteritems():
@@ -53,25 +49,25 @@ class FarsightService(Service):
             raise ServiceConfigError('API url required.')
 
     @classmethod
-    def generate_config_form(self, config):
+    def generate_config_form(cls, config):
         # Convert sigfiles to newline separated strings
-        html = render_to_string('services_config_form.html',
-                                {'name': self.name,
-                                 'form': forms.FarsightConfigForm(initial=config),
-                                 'config_error': None})
+        html = render_to_string(
+            'services_config_form.html',
+            {
+                'name': cls.name,
+                'form': forms.FarsightConfigForm(initial=config),
+                'config_error': None,
+            },
+        )
+
         form = forms.FarsightConfigForm
         return form, html
 
     @staticmethod
     def get_config_details(config):
-        display_config = {}
-
         # Rename keys so they render nice.
         fields = forms.FarsightConfigForm().fields
-        for name, field in fields.iteritems():
-            display_config[field.label] = config[name]
-
-        return display_config
+        return {field.label: config[name] for name, field in fields.iteritems()}
 
     def run(self, obj, config):
         key = config.get('farsight_api_key', '')
@@ -82,11 +78,14 @@ class FarsightService(Service):
             return
 
         if obj._meta['crits_type'] == 'IP':
-            url = '%s/lookup/rdata/ip/%s?limit=1000' % (url, obj.ip)
+            url = f'{url}/lookup/rdata/ip/{obj.ip}?limit=1000'
         elif obj._meta['crits_type'] == 'Domain':
-            url = '%s/lookup/rrset/name/%s?limit=1000' % (url, obj.domain)
+            url = f'{url}/lookup/rrset/name/{obj.domain}?limit=1000'
 
-        req = urllib2.Request(url, headers={'X-API-Key' : '%s' % key, 'Accept': 'application/json'})
+        req = urllib2.Request(
+            url, headers={'X-API-Key': f'{key}', 'Accept': 'application/json'}
+        )
+
 
         if settings.HTTP_PROXY:
             proxy = urllib2.ProxyHandler({'https': settings.HTTP_PROXY})
@@ -96,14 +95,14 @@ class FarsightService(Service):
             response = urllib2.urlopen(req)
             res = []
             while True:
-                line = response.readline()
-                if not line:
-                    break
-                res.append(simplejson.loads(line))
+                if line := response.readline():
+                    res.append(simplejson.loads(line))
 
+                else:
+                    break
         except Exception as e:
-            logger.error("Farsight: network connection error (%s)" % e)
-            self._error("Network connection error checking Farsight (%s)" % e)
+            logger.error(f"Farsight: network connection error ({e})")
+            self._error(f"Network connection error checking Farsight ({e})")
             return
 
         if not res:

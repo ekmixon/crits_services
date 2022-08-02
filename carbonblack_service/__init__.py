@@ -29,12 +29,8 @@ class CarbonBlackService(Service):
 
     @staticmethod
     def get_config(existing_config):
-        # Generate default config from form and initial values.
-        config = {}
         fields = forms.CarbonBlackInegrationConfigForm().fields
-        for name, field in fields.iteritems():
-            config[name] = field.initial
-
+        config = {name: field.initial for name, field in fields.iteritems()}
         # If there is a config in the database, use values from that.
         if existing_config:
             for key, value in existing_config.iteritems():
@@ -52,20 +48,21 @@ class CarbonBlackService(Service):
 
     @staticmethod
     def get_config_details(config):
-        display_config = {}
         # Rename keys so they render nice.
         fields = forms.CarbonBlackInegrationConfigForm().fields
-        for name, field in fields.iteritems():
-            display_config[field.label] = config[name]
-
-        return display_config
+        return {field.label: config[name] for name, field in fields.iteritems()}
 
     @classmethod
-    def generate_config_form(self, config):
-        html = render_to_string('services_config_form.html',
-                                {'name': self.name,
-                                 'form': forms.CarbonBlackInegrationConfigForm(initial=config),
-                                 'config_error': None})
+    def generate_config_form(cls, config):
+        html = render_to_string(
+            'services_config_form.html',
+            {
+                'name': cls.name,
+                'form': forms.CarbonBlackInegrationConfigForm(initial=config),
+                'config_error': None,
+            },
+        )
+
         form = forms.CarbonBlackInegrationConfigForm
         return form, html
 
@@ -114,7 +111,7 @@ class CarbonBlackService(Service):
         #CB_CRITS_USER = self.config['cb_crits_user']
         CB_SSL_VERIFY = False
 
-        self._info('Attempting to connect to %s' % CB_URL)
+        self._info(f'Attempting to connect to {CB_URL}')
         cb = cbapi.CbApi(CB_URL, token=CB_TOKEN, ssl_verify=CB_SSL_VERIFY)
         process_results = {}
 
@@ -131,9 +128,9 @@ class CarbonBlackService(Service):
                 modload_name = self.obj.filename
                 if modload_name[-4:] != '.dll':
                     modload_name += '.dll'
-                process_results = cb.process_search('modload:%s' % modload_name)
+                process_results = cb.process_search(f'modload:{modload_name}')
             else:
-                process_results = cb.process_search('process_md5:%s' % self.obj.md5)
+                process_results = cb.process_search(f'process_md5:{self.obj.md5}')
 
             if process_results['total_results'] != 0:
                 found_results = True
@@ -148,19 +145,20 @@ class CarbonBlackService(Service):
 
         process_result_data = []
         for result in process_results['results']:
-            data = {}
-            data['subtype'] = 'Processes Found'
-            data['result'] = result['process_name']
-            data['start time'] = result['start']
-            data['hostname'] = result['hostname']
-            data['username'] = result['username']
-            data['pid'] = result['process_pid']
-            data['ModLoad Count'] = result['modload_count']
-            data['FileMod Count'] = result['filemod_count']
-            data['RegMod Count'] = result['regmod_count']
-            data['NetConn Count'] = result['netconn_count']
-            data['ChildProc Count'] = result['childproc_count']
-            data['CrossProc Count'] = result['crossproc_count']
+            data = {
+                'subtype': 'Processes Found',
+                'result': result['process_name'],
+                'start time': result['start'],
+                'hostname': result['hostname'],
+                'username': result['username'],
+                'pid': result['process_pid'],
+                'ModLoad Count': result['modload_count'],
+                'FileMod Count': result['filemod_count'],
+                'RegMod Count': result['regmod_count'],
+                'NetConn Count': result['netconn_count'],
+                'ChildProc Count': result['childproc_count'],
+                'CrossProc Count': result['crossproc_count'],
+            }
 
             process_result_data.append(data)
 
@@ -179,20 +177,26 @@ class CarbonBlackService(Service):
             report = cb.process_report(result['id'], result['segment_id'])
             report_io = StringIO.StringIO(report)
             zfo = zipfile.ZipFile(report_io)
-            
-            self.show_modloads(zfo, 'Module loads for ' + hostname + '/' + str(pid))
+
+            self.show_modloads(zfo, f'Module loads for {hostname}/{str(pid)}')
             if self.MEM_LIMIT:
                 return
-            self.show_filemods(zfo, 'File Modifications for ' + hostname + '/' + str(pid))
+            self.show_filemods(zfo, f'File Modifications for {hostname}/{str(pid)}')
             if self.MEM_LIMIT:
                 return
-            self.show_regmods(zfo, 'Registry Modifications for ' + hostname + '/' + str(pid))
+            self.show_regmods(zfo, f'Registry Modifications for {hostname}/{str(pid)}')
             if self.MEM_LIMIT:
                 return
-            self.show_netconns(zfo, 'Network Connections for ' + hostname + '/' + str(pid))
+            self.show_netconns(zfo, f'Network Connections for {hostname}/{str(pid)}')
             if self.MEM_LIMIT:
                 return
-            self.show_childprocs(zfo, cb, 'Child Processes for ' + hostname + '/' + str(pid), hostname, pid)
+            self.show_childprocs(
+                zfo,
+                cb,
+                f'Child Processes for {hostname}/{str(pid)}',
+                hostname,
+                pid,
+            )
 
 
     def get_carbonblack_ip_data(self):

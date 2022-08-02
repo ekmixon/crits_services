@@ -12,8 +12,7 @@ def string_print(line):
 
 def get_config(data):
     m = re.search('\x01\x96\x01(.*)@@', data)
-    raw_config = m.group(0).replace('@','')[3:]
-    return raw_config
+    return m[0].replace('@', '')[3:]
         
 def decrypt_des(data):
     key = '&%#@?,:*'
@@ -49,5 +48,4 @@ def config(data):
     decoded_config = b64decode(coded_config)
     raw_config = decrypt_des(decoded_config)
     clean_config = string_print(raw_config)
-    config_dict = parsed_config(clean_config)
-    return config_dict
+    return parsed_config(clean_config)

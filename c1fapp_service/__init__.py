@@ -34,12 +34,8 @@ class C1fappService(Service):
 
     @staticmethod
     def get_config(existing_config):
-        # Generate default config from form and initial values.
-        config = {}
         fields = forms.C1fappConfigForm().fields
-        for name, field in fields.iteritems():
-            config[name] = field.initial
-
+        config = {name: field.initial for name, field in fields.iteritems()}
         # If there is a config in the database, use values from that.
         if existing_config:
             for key, value in existing_config.iteritems():
@@ -47,23 +43,23 @@ class C1fappService(Service):
         return config
 
     @classmethod
-    def generate_config_form(self, config):
-        html = render_to_string('services_config_form.html',
-                                {'name': self.name,
-                                 'form': forms.C1fappConfigForm(initial=config),
-                                 'config_error': None})
+    def generate_config_form(cls, config):
+        html = render_to_string(
+            'services_config_form.html',
+            {
+                'name': cls.name,
+                'form': forms.C1fappConfigForm(initial=config),
+                'config_error': None,
+            },
+        )
+
         form = forms.C1fappConfigForm
         return form, html
 
     @staticmethod
     def get_config_details(config):
-        display_config = {}
-
         fields = forms.C1fappConfigForm().fields
-        for name, field in fields.iteritems():
-            display_config[field.label] = config[name]
-
-        return display_config
+        return {field.label: config[name] for name, field in fields.iteritems()}
 
     def run(self, obj, config):
         apikey = config.get('cif_api_key', '')

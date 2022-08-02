@@ -58,11 +58,11 @@ class CHMInfoService(Service):
 
     @staticmethod
     def valid_for(obj):
-        chm_magic = '\x49\x54\x53\x46\x03\x00\x00\x00\x60\x00\x00\x00'
         if obj.filedata != None:
             data = obj.filedata.read()
             # Need to reset the read pointer.
             obj.filedata.seek(0)
+            chm_magic = '\x49\x54\x53\x46\x03\x00\x00\x00\x60\x00\x00\x00'
             if data.startswith(chm_magic):
                 return
         raise ServiceConfigError("Not a valid ITSF (CHM) file.")
@@ -74,12 +74,16 @@ class CHMInfoService(Service):
         return forms.CHMInfoRunForm(config)
 
     @classmethod
-    def generate_runtime_form(self, analyst, config, crits_type, identifier):
-        return render_to_string('services_run_form.html',
-                                {'name': self.name,
-                                 'form': forms.CHMInfoRunForm(),
-                                 'crits_type': crits_type,
-                                 'identifier': identifier})
+    def generate_runtime_form(cls, analyst, config, crits_type, identifier):
+        return render_to_string(
+            'services_run_form.html',
+            {
+                'name': cls.name,
+                'form': forms.CHMInfoRunForm(),
+                'crits_type': crits_type,
+                'identifier': identifier,
+            },
+        )
 
     @staticmethod
     def get_config(existing_config):
@@ -88,24 +92,27 @@ class CHMInfoService(Service):
         return {}
 
     @classmethod
-    def find_items(self, data):
+    def find_items(cls, data):
         """
         Find interesting CHM items using regex and strings
         - Inspects the pages within the CHM
         """
         results = []
-        data = self.unescape(data).lower()
+        data = cls.unescape(data).lower()
         #Regex matching
-        for match, desc in self.item_regex.items():
+        for match, desc in cls.item_regex.items():
             found = re.findall(match.lower(), data)
             for res in found:
-                temp = desc + ' (' + res + ').'
+                temp = f'{desc} ({res}).'
                 results.append(temp)
 
         #String matching
-        for match, desc in self.item_string.items():
-            if match.lower() in data:
-                results.append(desc)
+        results.extend(
+            desc
+            for match, desc in cls.item_string.items()
+            if match.lower() in data
+        )
+
         return results
 
     @classmethod
@@ -135,7 +142,7 @@ class CHMInfoService(Service):
         return results
 
     @classmethod
-    def unescape(self, data):
+    def unescape(cls, data):
         """
         Unescape HTML code
         - Used to assist with inspection of document items
@@ -145,70 +152,67 @@ class CHMInfoService(Service):
             data = data.decode('ascii','ignore')
             data = html_parser.unescape(data)
         except UnicodeDecodeError:
-            self._error('HTMLParser library encountered an error when decoding Unicode characters.')
+            cls._error(
+                'HTMLParser library encountered an error when decoding Unicode characters.'
+            )
+
         return data
 
     @classmethod
-    def analyze(self):
+    def analyze(cls):
         """
         Extract metadata and analyze the CHM file
         @return analysis results dictionary
         """
-        obj_items = set()
         obj_items_details = {}
         obj_items_summary = []
         locale_desc = ''
 
-        locale_desc = self.chmparse.GetLCID()
+        locale_desc = cls.chmparse.GetLCID()
         if locale_desc:
             locale_desc = ', '.join(locale_desc)
 
-        #Create a list of items within the CHM
-        obj_items.add(self.chmparse.home)
-        obj_items.add(self.chmparse.index)
-        obj_items.add(self.chmparse.topics)
+        obj_items = {cls.chmparse.home, cls.chmparse.index, cls.chmparse.topics}
         obj_items = [x for x in obj_items if x is not None]
 
         #Analyse objects/pages in CHM
         for item in obj_items:
-            fetch = self.chmparse.ResolveObject(item)
+            fetch = cls.chmparse.ResolveObject(item)
             if fetch[0] == 0:
                 #Read data for object
                 try:
-                    item_details = self.chmparse.RetrieveObject(fetch[1])
+                    item_details = cls.chmparse.RetrieveObject(fetch[1])
                     if len(item_details) == 2:
                         data = item_details[1]
                         size = item_details[0]
                         md5_digest = hashlib.md5(data).hexdigest()
                         obj_items_details = {
-                            'name':         item,
-                            'size':         size,
-                            'md5':          md5_digest,
-                            'urls':         self.find_urls(data),
-                            'detection':    self.find_items(data),
+                            'name': item,
+                            'size': size,
+                            'md5': md5_digest,
+                            'urls': cls.find_urls(data),
+                            'detection': cls.find_items(data),
                         }
-                        obj_items_summary.append(obj_items_details)
-                        self.added_files.append([item, size, md5_digest, data])
-                    else:
-                        self._error('RetrieveObject() did not return data for "{}".'.format(item))
-                except Exception as e:
-                    self._error('Analysis of item "{}" failed.'.format(item))
-                    continue
 
-        result = {
-            'title':                self.chmparse.title,
-            'index':                self.chmparse.index,
-            'binary_index':         self.chmparse.binaryindex,
-            'topics':               self.chmparse.topics,
-            'home':                 self.chmparse.home,
-            'encoding':             self.chmparse.encoding,
-            'locale_id':            self.chmparse.lcid,
-            'locale_description':   locale_desc,
-            'searchable':           str(self.chmparse.searchable),
-            'chm_items':            ', '.join(obj_items),
-            'obj_items_summary':    obj_items_summary,
+                        obj_items_summary.append(obj_items_details)
+                        cls.added_files.append([item, size, md5_digest, data])
+                    else:
+                        cls._error(f'RetrieveObject() did not return data for "{item}".')
+                except Exception as e:
+                    cls._error(f'Analysis of item "{item}" failed.')
+        return {
+            'title': cls.chmparse.title,
+            'index': cls.chmparse.index,
+            'binary_index': cls.chmparse.binaryindex,
+            'topics': cls.chmparse.topics,
+            'home': cls.chmparse.home,
+            'encoding': cls.chmparse.encoding,
+            'locale_id': cls.chmparse.lcid,
+            'locale_description': locale_desc,
+            'searchable': str(cls.chmparse.searchable),
+            'chm_items': ', '.join(obj_items),
+            'obj_items_summary': obj_items_summary,
         }
-        return result
 
     def run(self, obj, config):
         """

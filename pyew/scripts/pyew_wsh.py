@@ -76,8 +76,6 @@ def web_socket_transfer_data(request):
     (c, sample_name) = start_pyew_shell(request, id_, token)
 
     i = c.expect([pexpect.TIMEOUT,'[*]>'], timeout=timeout)
-    if i == 0:
-        pass
     log += c.before
     request.ws_stream.send_message(base64.b64encode(log), binary=False)
 
@@ -90,8 +88,6 @@ def web_socket_transfer_data(request):
             return
         c.sendline(line)
         i = c.expect([pexpect.TIMEOUT,'[*]>'], timeout=timeout)
-        if i == 0:
-            pass
         nlog = c.before
         request.ws_stream.send_message(base64.b64encode(nlog[len(log):]),
                                        binary=False)

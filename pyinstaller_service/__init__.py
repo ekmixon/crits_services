@@ -33,11 +33,7 @@ class pyinstallerService(Service):
         Check to see if this was built with pyinstaller.
         """
 
-        if not obj.filedata:
-            return False
-
-        #hexstring = "cffaedfe07000001030000800200"
-        return True
+        return bool(obj.filedata)
 
     def get_data(self, nm, arch):
         if type(arch.toc) is type({}):

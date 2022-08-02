@@ -28,9 +28,7 @@ def config(data):
         if not config_raw:
             return None
 
-        config_fields = config_raw.split('|')
-
-        if config_fields:
+        if config_fields := config_raw.split('|'):
             conf_dict['ServerID'] = config_fields[0]
             conf_dict['Mutex'] = config_fields[1]
             conf_dict['InstallName'] = config_fields[2]

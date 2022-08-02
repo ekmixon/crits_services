@@ -2,7 +2,7 @@
 __description__ = '%prog - extracts payload and metadata from a Symantec Local Quarantine files'
 __author__ = 'Adam Polkosnik <adam.polkosnik@ny.frb.org> <apolkosnik@gmail.com>'
 __date__ = '2015-04-08'
-__version__ = '0.3 ('+ __date__ + ')'
+__version__ = f'0.3 ({__date__})'
 __license__ = "MIT"
 
 from struct import unpack
@@ -25,14 +25,14 @@ def ExtractPayloads(data):
     xorkeya5 = 0xa5
     xorkey5a = 0x5a
     xorkeyff = 0xff
- 
+
     def ExtractFromLocal(data):
         data5a = bytearray(len(data))
         #dataff = bytearray(len(data))
-        dechunked = bytearray() 
+        dechunked = bytearray()
         shortone = False
-        if data[0:4] == b'\x90\x12\x00\x00':
-            xor1_start = unpack('<L',data[0:4])[0]
+        if data[:4] == b'\x90\x12\x00\x00':
+            xor1_start = unpack('<L', data[:4])[0]
             for k in range(len(data)):
                 #data5a[k] ^= xorkey5a
                 f = data[k]
@@ -60,12 +60,12 @@ def ExtractPayloads(data):
                 sample_size_off= next_one + 15
             #print ("sample_size_off: %s" % binascii.hexlify(data5a[sample_size_off:sample_size_off+8])) 
             sample_size = unpack('<Q',data5a[(sample_size_off):(sample_size_off+8)])[0]
-            
+
             #payload_off = len(data) - unpack('<Q',data5a[(sample_size_off):(sample_size_off+8)])[0]
 
             #print "Payload_offset: 0x%x" % payload_off
             #print binascii.hexlify(str(data5a[(payload_off):(payload_off+8)]))
-            
+
             #print "sample_size: 0x%x (%d)" % (sample_size, sample_size)
 
             if data5a[next_one + 5 :next_one + 8] != b'\x03\x20\x08':      
@@ -75,7 +75,7 @@ def ExtractPayloads(data):
             else:
                 # I saw this happening with a file that had two hash blocks...indicating multiple files being squished inside a single VBN
                 payload_off = sample_size_off + 13
-                
+
             #print ("Payload_offset: 0x%x" % payload_off)
             sep_off = payload_off - 5
             #print ("Chunk: %s, Payload: %s " %(binascii.hexlify(data5a[sep_off:payload_off]), binascii.hexlify(data5a[payload_off:payload_off+8])))
@@ -124,8 +124,8 @@ def ExtractPayloads(data):
 
             else:
                 print ("Single chunk!")
-                
-                            
+
+
             for k in range(len(dechunked)):
                 dechunked[k] ^= xorkeyff
 
@@ -133,7 +133,6 @@ def ExtractPayloads(data):
         else:
             #do something for other cases... empty
             return (dechunked, len(dechunked), len(dechunked) )
-
 #fstats = os.stat(sys.argv[1])
     if not data:
         data = bytearray(file(sys.argv[1], "rb").read())
@@ -145,44 +144,23 @@ def ExtractPayloads(data):
 
     #header=defaultdict(defaultdict)
     meta = ""
-    if data[0:4] == b'\x90\x12\x00\x00':
+    if data[:4] == b'\x90\x12\x00\x00':
         n = data[4:255+5].find("\x00")
         if n > 0:
             orig_filename =    data[4:n+4]
-            meta += (orig_filename+ ",")
+            meta += f"{orig_filename},"
         else:
             orig_filename = ""
         n = data[0x184:0x184+512].find(b'\x00')
-        if n > 0:
-            meta +=    data[0x184:0x184+n]
-        else:
-            meta += ""
-
+        meta += data[0x184:0x184+n] if n > 0 else ""
         timestamp = str(datetime.datetime.fromtimestamp(unpack('<L',data[0xd70:0xd70 + 4])[0]))
         #print("timestamp: %s" % timestamp)
         meta += (',"' + timestamp+'"')
         #print("meta: %s" % meta)
-        
-        (extracted,d_len,d_size) = ExtractFromLocal(data)  
+
+        (extracted,d_len,d_size) = ExtractFromLocal(data)
         payload_length = 0
         payload_length = d_size
-        # print ("payload_length: %x" % payload_length )
-        # pattern = re.compile(b'\x09..\x00\x00')
-        # separs = [m.start() for m in pattern.finditer(data)]
-        # if separs:
-        #     print("Separator count: %d"% len(separs))
-        # sanity check #1 
-        # MZheaders = [n.start() for n in re.finditer(b'\x4d\x5a', data)]
-        # if MZheaders:
-            # #print ("Found possible: MZ headers first at: %s (0x%x): Full list: %s" % ( str(MZheaders[0]), int(MZheaders[0]), str(MZheaders)))
-            # #print (binascii.hexlify(data[0:20]))
-            # pepattern = re.compile(b'\x50\x45\x00\x00')
-            # PEheaders = [o.start() for o in pepattern.finditer(data)]
-            # for q in MZheaders:
-                # hit = unpack("<H",data[q+60:q+62])[0]
-                # if hit in PEheaders:
-                    # print ("Found MZ: %s (0x%x), followed by PE: %s (0x%x)" % ( str(q), int(q), str(hit), int(hit)))           
-
         return meta, extracted
     else:
         print ("Not a valid Symantec Local Quarantine file!")

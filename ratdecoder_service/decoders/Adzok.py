@@ -21,19 +21,19 @@ def parse_config(raw_config):
     for k, v in config_dict.iteritems():
         if k == 'dir':
             clean_config['Install Path'] = v
-        if k == 'reg':
-            clean_config['Registrey Key'] = v
-        if k == 'pass':
-            clean_config['Password'] = v
-        if k == 'hidden':
+        elif k == 'hidden':
             clean_config['Hidden'] = v
-        if k == 'puerto':
-            clean_config['Port'] = v
-        if k == 'ip':
-            clean_config['Domain'] = v
-        if k == 'inicio':
+        elif k == 'inicio':
             clean_config['Install'] = v
 
+        elif k == 'ip':
+            clean_config['Domain'] = v
+        elif k == 'pass':
+            clean_config['Password'] = v
+        elif k == 'puerto':
+            clean_config['Port'] = v
+        elif k == 'reg':
+            clean_config['Registrey Key'] = v
     return clean_config
 
 
@@ -44,5 +44,4 @@ def config(data):
         for name in jar.namelist():
             if name == "config.xml": # contains the encryption key
                 raw_config = jar.read(name)
-                new_config = parse_config(raw_config)
-                return new_config
+                return parse_config(raw_config)

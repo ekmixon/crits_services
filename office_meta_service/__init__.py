@@ -30,23 +30,26 @@ class OfficeMetaService(Service):
 
     @staticmethod
     def valid_for(obj):
-        office_magic = "\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
         if obj.filedata != None:
             data = obj.filedata.read()
             # Need to reset the read pointer.
             obj.filedata.seek(0)
+            office_magic = "\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
             if data.startswith(office_magic):
                 return
         raise ServiceConfigError("Not a valid office document.")
 
     @classmethod
-    def generate_runtime_form(self, analyst, config, crits_type, identifier):
-        html = render_to_string('services_run_form.html',
-                                {'name': self.name,
-                                 'form': forms.OfficeMetaRunForm(),
-                                 'crits_type': crits_type,
-                                 'identifier': identifier})
-        return html
+    def generate_runtime_form(cls, analyst, config, crits_type, identifier):
+        return render_to_string(
+            'services_run_form.html',
+            {
+                'name': cls.name,
+                'form': forms.OfficeMetaRunForm(),
+                'crits_type': crits_type,
+                'identifier': identifier,
+            },
+        )
 
     @staticmethod
     def bind_runtime_form(analyst, config):

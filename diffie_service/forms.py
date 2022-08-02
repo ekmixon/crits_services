@@ -26,12 +26,12 @@ class DiffieConfigForm(forms.Form):
         # take the ones with a status that is 'completed'.
         analysisresults = AnalysisResult.objects(object_type=type_,
                                                  object_id=id_)
-        choices = []
-        for ar in analysisresults:
-            if ar.status == AnalysisTask.STATUS_COMPLETED:
-                choices.append((ar.analysis_id, '%s: %s' % (ar.service_name,
-                                                            ar.start_date)))
-            
+        choices = [
+            (ar.analysis_id, f'{ar.service_name}: {ar.start_date}')
+            for ar in analysisresults
+            if ar.status == AnalysisTask.STATUS_COMPLETED
+        ]
+
         self.fields['first'].choices = choices
         self.fields['second'].choices = choices
 

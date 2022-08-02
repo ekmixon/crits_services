@@ -36,14 +36,9 @@ def data_walk(split_data):
     return stringList
 
 def parse_config(raw_config):
-    conf_dict = {}
-    conf_dict['Domain'] = raw_config[0]
-    conf_dict['Port'] = raw_config[1]
-    return conf_dict
+        return {'Domain': raw_config[0], 'Port': raw_config[1]}
 
 def config(data):
-    get_config = first_split(data)
-    if get_config:
-        raw_config = data_walk(get_config)
-        config_dict = parse_config(raw_config)
-        return config_dict
+        if get_config := first_split(data):
+                raw_config = data_walk(get_config)
+                return parse_config(raw_config)
